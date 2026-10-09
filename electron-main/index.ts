@@ -60,21 +60,26 @@ let nutjs: nutjsTs;
 const windowsCaptureEnabled =
   platform !== 'win32' || enableWindowsCapture(app.commandLine);
 
-// 该版本electron所对应的node版本
-console.log('process.version', process.version);
-// electron版本
-console.log('process.versions.electron', process.versions.electron);
-// abi版本
-console.log('process.versions.modules', process.versions.modules);
+// `--print-link` runs beside the resident instance; keep its profile separate.
+const printLinkMode = isPrintLinkInvocation(process.argv);
 
-if (platform === 'darwin') {
-  console.log('运行在 macOS 上');
-} else if (platform === 'linux') {
-  console.log('运行在 Linux 上');
-} else if (platform === 'win32') {
-  console.log('运行在 Windows 上');
-} else {
-  console.log(`运行在: ${platform}上`);
+if (!printLinkMode) {
+  // 该版本electron所对应的node版本
+  console.log('process.version', process.version);
+  // electron版本
+  console.log('process.versions.electron', process.versions.electron);
+  // abi版本
+  console.log('process.versions.modules', process.versions.modules);
+
+  if (platform === 'darwin') {
+    console.log('运行在 macOS 上');
+  } else if (platform === 'linux') {
+    console.log('运行在 Linux 上');
+  } else if (platform === 'win32') {
+    console.log('运行在 Windows 上');
+  } else {
+    console.log(`运行在: ${platform}上`);
+  }
 }
 
 // https://www.electronjs.org/zh/docs/latest/tutorial/security#%E9%9A%94%E7%A6%BB%E4%B8%8D%E5%8F%97%E4%BF%A1%E4%BB%BB%E7%9A%84%E5%86%85%E5%AE%B9
@@ -89,8 +94,6 @@ const appName = app.isPackaged
   ? app.getName()
   : process.env.PALMDESK_APP_NAME || 'PalmDesk Dev';
 app.setName(appName);
-// `--print-link` runs beside the resident instance; keep its profile separate.
-const printLinkMode = isPrintLinkInvocation(process.argv);
 const userData = printLinkMode
   ? path.join(tmpdir(), `${appName}-print-link-${process.pid}`)
   : path.join(app.getPath('appData'), appName);
