@@ -195,10 +195,15 @@ node scripts/dev.mjs --prepare-only
 
 | 文档                                                | 内容                                             |
 | --------------------------------------------------- | ------------------------------------------------ |
+| [定位与使用场景](docs/USE_CASES.md)                 | AI-native 与 Agent 工作流定位、痛点分析及典型场景 |
 | [本地开发](docs/LOCAL_DEVELOPMENT.md)               | 后端准备、Windows 开发、烟测、应用身份和权限恢复 |
 | [服务配置](docs/SERVICE_CONFIGURATION.md)           | API、信令、扫码连接、HTTPS 和 TURN               |
+| [服务端部署与测试环境](docs/DEPLOYMENT.md)          | 容器编排、数据库初始化、Nginx反代与 ssh-hk 测试环境 |
 | [桌面安装包与预发布](docs/DESKTOP_RELEASES.md)      | 安装包、签名、版本规则和发布流程                 |
 | [会话阅读](docs/GLASSLINE_INTEGRATION.md)           | 支持来源、读取限制、窗口关联和验证入口           |
+| [流模式实现方案](docs/STREAM_MODE.md)               | 单窗口视频流、防模糊编码、Rust 重构评估与无人值守 Windows（RDP 断开）适配 |
+| [Windows 无人值守主机部署](docs/WINDOWS_UNATTENDED_HOST.md) | 新机器部署清单：自动登录、开机自启、RDP 断开后保持可捕获、虚拟显示器 |
+| [Agent 探测与识别](docs/AGENT_DETECTION.md)         | 原生窗口特征匹配、已安装检测与会话日志发现       |
 | [容器镜像](containers/README.md)                    | 网页与后端镜像、固定后端源码及部署适配层         |
 | [TURN 验证](docs/TURN_TESTING.md)                   | 强制中继与凭据续期验证                           |
 | [历史验证报告](docs/CODEX_REMOTE_REPAIR_RESULTS.md) | 历史测试结果及待验收项目                         |

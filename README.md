@@ -245,10 +245,15 @@ The detailed guides are currently in Chinese.
 | Guide                                                    | Contents                                                                                       |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [Chinese README](README.zh-CN.md)                        | Chinese project overview and usage instructions                                                |
+| [Use cases](docs/USE_CASES.md)                           | Product positioning, pain points, and agent workflows                                          |
 | [Local development](docs/LOCAL_DEVELOPMENT.md)           | Backend setup, browser and Electron smoke tests, application identity, and permission recovery |
 | [Service configuration](docs/SERVICE_CONFIGURATION.md)   | API and signaling addresses, QR connections, HTTPS deployment, and TURN                        |
+| [Server deployment & testbed](docs/DEPLOYMENT.md)        | Docker compose setup, database init, Nginx proxy, and ssh-hk test environment                  |
 | [Desktop releases](docs/DESKTOP_RELEASES.md)             | Preview installers, signing, version rules and release workflow                                |
 | [Session reading](docs/GLASSLINE_INTEGRATION.md)         | Supported sources, reading limits, window associations and test setup                          |
+| [Stream mode](docs/STREAM_MODE.md)                       | Single-window capture, text-first encoding, Rust evaluation & unattended Windows (RDP) fixes |
+| [Unattended Windows host](docs/WINDOWS_UNATTENDED_HOST.md) | New-machine runbook (Chinese): auto-logon, autostart, keep capture working after RDP closes, virtual display |
+| [Agent detection](docs/AGENT_DETECTION.md)               | Native window matching, app discovery, and session discovery                                   |
 | [Container images](containers/README.md)                 | Web and backend images, pinned backend source and deployment adapter                           |
 | [TURN testing](docs/TURN_TESTING.md)                     | Forced-relay and credential-renewal verification                                               |
 | [Validation report](docs/CODEX_REMOTE_REPAIR_RESULTS.md) | Historical test results and remaining acceptance work                                          |

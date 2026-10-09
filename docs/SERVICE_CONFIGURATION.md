@@ -10,20 +10,22 @@
 
 环境变量示例在根目录 `.env.example`。在 `.env.local` 或构建环境中提供值，修改后重启 Vite/重新构建。设置页保存的值优先于构建环境变量，并在保存后重载客户端生效。
 
-| 配置                   | 浏览器默认      | 打包后的 Electron 默认  |
-| ---------------------- | --------------- | ----------------------- |
-| `VITE_API_BASE_URL`    | `/api`          | `https://palmdesk.abreto.icu/api` |
-| `VITE_SIGNALING_URL`   | 当前网页 origin | `https://palmdesk.abreto.icu` |
-| `VITE_CLIENT_BASE_URL` | 空，手机端无需设置 | `https://palmdesk.abreto.icu/` |
-| `VITE_TURN_URL`        | 空，后端自动下发 | 空，后端自动下发        |
-| `VITE_TURN_USERNAME`   | 空              | 空                      |
-| `VITE_TURN_CREDENTIAL` | 空              | 空                      |
+| 配置                   | 浏览器默认      | 打包后的 Electron 默认  | 测试环境（ssh-hk） |
+| ---------------------- | --------------- | ----------------------- | ------------------ |
+| `VITE_API_BASE_URL`    | `/api`          | `https://palmdesk.abreto.icu/api` | `https://palmdesk-hk-test.ziniaocloud.com/api` |
+| `VITE_SIGNALING_URL`   | 当前网页 origin | `https://palmdesk.abreto.icu` | `https://palmdesk-hk-test.ziniaocloud.com` |
+| `VITE_CLIENT_BASE_URL` | 空，手机端无需设置 | `https://palmdesk.abreto.icu/` | `https://palmdesk-hk-test.ziniaocloud.com/` |
+| `VITE_TURN_URL`        | 空，后端自动下发 | 空，后端自动下发        | 空，后端自动下发 |
+| `VITE_TURN_USERNAME`   | 空              | 空                      | 空 |
+| `VITE_TURN_CREDENTIAL` | 空              | 空                      | 空 |
 
 `VITE_ENABLE_UPSTREAM_VERSION_CHECK=true` 才调用上游版本接口；`VITE_OPEN_DEVTOOLS=true` 才在开发客户端自动打开控制台。默认都关闭。
 
 信令地址填服务的 origin，例如 `https://remote.example.com`，Socket.IO 会使用 `/socket.io` 路径。API 地址可填同域的 `/api`，或完整的 `https://remote.example.com/api`。
 
-打包版 Electron 使用 `file:` 页面，默认连接 PalmDesk 公共服务。自部署时可覆盖完整 HTTPS API/信令地址及手机网页地址，两端必须使用同一个后端。开发时 Vite 继续使用本地同域代理。设置页之前保存的地址优先于新的默认值，需要清除或修改旧设置才会使用默认值。
+打包版 Electron 使用 `file:` 页面，默认连接 PalmDesk 公共服务。自部署或接入测试环境时可覆盖完整 HTTPS API/信令地址及手机网页地址，两端必须使用同一个后端。开发时 Vite 继续使用本地同域代理。设置页之前保存的地址优先于新的默认值，需要清除或修改旧设置才会使用默认值。
+
+测试环境目前部署在 `ssh-hk`（`https://palmdesk-hk-test.ziniaocloud.com`），完整的服务端容器架构、Nginx 反代与运维步骤详见 [服务端部署与测试环境指南](DEPLOYMENT.md)。
 
 ## 扫码连接
 
