@@ -10,6 +10,7 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const { Server } = require('socket.io');
+
 const artifacts = path.resolve('.local/credential-visibility');
 await mkdir(artifacts, { recursive: true });
 const device = { uuid: '12345678', password: 'fixture9' };
@@ -216,21 +217,8 @@ try {
     'PASS reload ignores a legacy persisted show-password preference'
   );
 
-  await button('显示临时密码').click();
-  await button('显示二维码').click();
-  const rotation = host.waitForResponse((response) =>
-    response.url().endsWith('/desk_user/update_by_uuid')
-  );
-  await button('更新临时密码').click();
-  await rotation;
-  await ready();
-  await concealed();
-  await button('显示二维码').click();
-  await qr.waitFor();
-  assert.notEqual(await decodeScreenshot(), link);
-  console.log(
-    'PASS password rotation conceals both credentials and reveals the new invitation'
-  );
+  assert.equal(await button('更新临时密码').count(), 0);
+  console.log('PASS permanent device passwords offer no rotation control');
 
   for (const socket of io.sockets.sockets.values()) socket.conn.close();
   await host.locator('.qr-concealed').waitFor();

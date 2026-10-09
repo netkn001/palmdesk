@@ -77,7 +77,7 @@ export async function exerciseQrConnection({
       verifyRequests.push(request);
   };
   phone.on('request', listener);
-  const invalidLink = originalLink + '&password=duplicate';
+  const invalidLink = `${originalLink}&password=duplicate`;
   await phone.goto(invalidLink);
   await phone.locator('.connection-error').waitFor();
   await phone.waitForFunction(() => !location.hash.includes('password'));
@@ -95,40 +95,13 @@ export async function exerciseQrConnection({
     'opening a QR link automatically connects once and does not reconnect on return or reload'
   );
 
-  // Failed rotation must keep the currently valid QR credentials.
-  await host.route('**/desk_user/update_by_uuid', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ code: 500, message: 'Rotation fixture failure' }),
-    })
-  );
-  await host.locator('.info-right .edit').click();
-  await host.getByText('Rotation fixture failure', { exact: true }).waitFor();
-  await host.getByRole('button', { name: '显示二维码', exact: true }).click();
-  await host.locator('.connection-qr canvas').waitFor();
-  assert.equal(await readQr(), originalLink);
-  await host.unroute('**/desk_user/update_by_uuid');
-  const rotation = host.waitForResponse((response) =>
-    response.url().endsWith('/desk_user/update_by_uuid')
-  );
-  await host.locator('.info-right .edit').click();
-  await rotation;
+  // Device passwords are permanent; there is no rotation control.
+  assert.equal(await host.locator('.info-right .edit').count(), 0);
   await host.getByRole('button', { name: '显示二维码', exact: true }).click();
   await host.locator('.connection-qr canvas').waitFor();
   const currentLink = await readQr();
-  assert.notEqual(currentLink, originalLink);
-  device.password = new URLSearchParams(
-    new URL(currentLink).hash.split('?')[1]
-  ).get('password');
-  await phone.goto(originalLink);
-  await phone.getByText('密码错误，请重新输入', { exact: true }).waitFor();
-  await phone.getByLabel('连接密码', { exact: true }).fill(device.password);
-  await phone.locator('.pwd-wrap .btn').click();
-  await waitConnected();
-  await disconnect();
-  pass(
-    'password rotation changes the QR only after success, and expired codes fall back to password entry'
-  );
+  assert.equal(currentLink, originalLink);
+  pass('the host offers no password rotation and keeps a stable QR link');
 
   await phone.route('**/desk_user/find_receiver_by_uuid*', (route) =>
     route.fulfill({

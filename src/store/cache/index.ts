@@ -12,6 +12,8 @@ export type PiniaCacheRootState = {
   isAlwaysOnTop: boolean;
   deskUserUuid: string;
   deskUserPassword: string;
+  /** Cloud instance that owns deskUserUuid; detects cloned images. */
+  deskUserInstanceId: string;
   remoteDeskUserUuid: string;
   remoteDeskUserPassword: string;
 };
@@ -28,6 +30,7 @@ export const usePiniaCacheStore = defineStore(`${LS_KEY_PREFIX}pinia-cache`, {
       isAlwaysOnTop: false,
       deskUserUuid: '',
       deskUserPassword: '',
+      deskUserInstanceId: '',
       remoteDeskUserUuid: '',
       remoteDeskUserPassword: '',
     };

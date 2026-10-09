@@ -89,15 +89,6 @@
               >
                 <EyeOffOutline v-if="hidePwd" /><EyeOutline v-else />
               </button>
-              <button
-                class="ico edit"
-                type="button"
-                title="更新临时密码"
-                aria-label="更新临时密码"
-                @click="handleUpdatePassword"
-              >
-                <CreateOutline />
-              </button>
             </div>
           </div>
         </div>
@@ -106,11 +97,7 @@
         v-if="ipcRenderer"
         :device="cacheStore.deskUserUuid"
         :password="cacheStore.deskUserPassword"
-        :ready="
-          deviceReady &&
-          connectStatus === WsConnectStatusEnum.connect &&
-          !updatingPassword
-        "
+        :ready="deviceReady && connectStatus === WsConnectStatusEnum.connect"
         @settings="showUrlModal = true"
       />
       <div class="mobile-section-title">连接</div>
@@ -550,7 +537,6 @@ import {
   ChevronDownOutline,
   CloseOutline,
   CopyOutline,
-  CreateOutline,
   EyeOffOutline,
   EyeOutline,
   HardwareChipOutline,
@@ -571,7 +557,6 @@ import {
   fetchDeskUserCreate,
   fetchDeskUserLinkVerify,
   fetchDeskUserLogin,
-  fetchDeskUserUpdateByUuid,
   fetchFindReceiverByUuid,
 } from '@/api/deskUser';
 import RemoteVideoSettings from '@/components/RemoteVideoSettings/index.vue';
@@ -616,9 +601,15 @@ import { runAgentLaunch } from '@/utils/agent-launch-request';
 import { CaptureLifecycle } from '@/utils/capture-lifecycle';
 import {
   type ConnectionInvite,
+  createConnectionInvite,
   parseConnectionInvite,
 } from '@/utils/connection-invite';
+import {
+  decideCredentialAction,
+  normalizeInstanceId,
+} from '@/utils/host-identity';
 import { ImageTransferHost } from '@/utils/image-transfer-channel';
+import { getClientUrl } from '@/utils/localStorage/app';
 import { WebRTCClass } from '@/utils/network/webRTC';
 import { VideoActivityLease } from '@/utils/remote-presence';
 import {
@@ -682,7 +673,6 @@ const receivedInvite = ref<ConnectionInvite>();
 const showScanModal = ref(false);
 const showUrlModal = ref(false);
 const verifyingPassword = ref(false);
-const updatingPassword = ref(false);
 let disposed = false;
 const showPwdModalCpt = ref(false);
 const showLinkDeviceList = ref(false);
@@ -839,7 +829,6 @@ const captureLoading = ref(false);
 const captureError = ref('');
 const captureWarning = ref('');
 const captureRefreshTimer = ref<ReturnType<typeof setInterval>>();
-const originalPassword = ref('');
 const loopBilldDeskUpdateUserTimer = ref();
 const suspend = ref('');
 const resume = ref('');
@@ -1141,6 +1130,7 @@ async function handleInit() {
   deviceReady.value = true;
   deskUserUuid.value = cacheStore.deskUserUuid;
   deskUserPassword.value = cacheStore.deskUserPassword;
+  void publishConnectionLink();
   handleLoopBilldDeskUpdateUserTimer();
   initWs({
     roomId: roomId.value,
@@ -1286,14 +1276,54 @@ function handleInitIpcRendererOn() {
   ipcRendererOn(IPC_EVENT.response_workAreaSize, responseWorkAreaSize);
 }
 
+const HOST_IDENTITY_WAITING = '正在确认云主机身份，暂不使用缓存凭据上线…';
+
+async function resolveHostIdentity() {
+  if (!ipcRenderer) return { instanceId: '', action: 'reuse' as const };
+  // Network may lag at boot: wait about a minute first, then keep retrying.
+  let waitMs = 60_000;
+  for (;;) {
+    const res = await ipcRendererInvoke({
+      windowId: WINDOW_ID_ENUM.remote,
+      channel: IPC_EVENT.getHostInstanceId,
+      requestId: getRandomString(8),
+      data: { waitMs },
+    });
+    const instanceId = res?.data?.supported
+      ? normalizeInstanceId(res.data.instanceId)
+      : '';
+    const action = decideCredentialAction({
+      currentInstanceId: instanceId,
+      recordedInstanceId: cacheStore.deskUserInstanceId,
+      hasCredentials: !!(
+        cacheStore.deskUserUuid && cacheStore.deskUserPassword
+      ),
+    });
+    if (action !== 'wait') {
+      if (connectionError.value === HOST_IDENTITY_WAITING)
+        connectionError.value = '';
+      return { instanceId, action };
+    }
+    if (disposed) return undefined;
+    connectionError.value = HOST_IDENTITY_WAITING;
+    waitMs = 10_000;
+  }
+}
+
 async function initDeskUser() {
   try {
+    const identity = await resolveHostIdentity();
+    if (!identity) return;
+    if (identity.action === 'recreate') {
+      // Credentials copied from an image template belong to another machine.
+      cacheStore.deskUserUuid = '';
+      cacheStore.deskUserPassword = '';
+    }
     if (!cacheStore.deskUserUuid || !cacheStore.deskUserPassword) {
       const res = await fetchDeskUserCreate();
       if (res.code === 200) {
         cacheStore.deskUserUuid = res.data.uuid!;
         cacheStore.deskUserPassword = res.data.password!;
-        originalPassword.value = res.data.password!;
         roomId.value = cacheStore.deskUserUuid;
       }
     } else {
@@ -1302,46 +1332,48 @@ async function initDeskUser() {
         password: cacheStore.deskUserPassword,
       });
       if (res.code === 200) {
-        originalPassword.value = cacheStore.deskUserPassword;
         roomId.value = cacheStore.deskUserUuid;
       } else {
         const createRes = await fetchDeskUserCreate();
         if (createRes.code === 200) {
           cacheStore.deskUserUuid = createRes.data.uuid!;
           cacheStore.deskUserPassword = createRes.data.password!;
-          originalPassword.value = createRes.data.password!;
           roomId.value = cacheStore.deskUserUuid;
         }
       }
     }
+    if (roomId.value && identity.instanceId)
+      cacheStore.deskUserInstanceId = identity.instanceId;
   } catch (error) {
     console.log(error);
   }
 }
 
-async function handleUpdatePassword() {
-  if (updatingPassword.value || !deviceReady.value) return;
-  updatingPassword.value = true;
+/** Writes the invitation for `PalmDesk.exe --print-link` (Windows hosts). */
+async function publishConnectionLink() {
+  if (!ipcRenderer || !cacheStore.deskUserInstanceId) return;
+  let url: string;
   try {
-    const password = getRandomString(8);
-    const result = await fetchDeskUserUpdateByUuid({
-      uuid: cacheStore.deskUserUuid!,
-      password: originalPassword.value,
-      new_password: password,
-    });
-    if (result.code === 200) {
-      cacheStore.deskUserPassword = password;
-      deskUserPassword.value = password;
-      originalPassword.value = password;
-      window.$message.success('更新临时密码成功！');
-    } else {
-      window.$message.error(result.message || '更新临时密码失败');
-    }
-  } catch {
-    window.$message.error('更新临时密码失败，请重试');
-  } finally {
-    updatingPassword.value = false;
+    url = createConnectionInvite(
+      getClientUrl(),
+      cacheStore.deskUserUuid,
+      cacheStore.deskUserPassword
+    );
+  } catch (error) {
+    console.log('无法生成连接链接', error);
+    return;
   }
+  const res = await ipcRendererInvoke({
+    windowId: WINDOW_ID_ENUM.remote,
+    channel: IPC_EVENT.publishConnectionLink,
+    requestId: getRandomString(8),
+    data: {
+      device: cacheStore.deskUserUuid,
+      password: cacheStore.deskUserPassword,
+      url,
+    },
+  });
+  if (res?.code !== 0) console.log('写入连接信息失败', res?.msg);
 }
 
 watch(
@@ -1699,7 +1731,6 @@ function changeDebugUrl() {
 }
 
 async function handleResetDeskuuid() {
-  if (updatingPassword.value) return;
   deviceReady.value = false;
   cacheStore.deskUserUuid = '';
   cacheStore.deskUserPassword = '';

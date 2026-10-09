@@ -38,6 +38,8 @@ export const IPC_EVENT = {
   shellOpenExternal: 'shellOpenExternal',
   globalShortcut: 'globalShortcut',
   getPlatform: 'getPlatform',
+  getHostInstanceId: 'getHostInstanceId',
+  publishConnectionLink: 'publishConnectionLink',
   getCaptureSources: 'getCaptureSources',
   getAgentApplications: 'getAgentApplications',
   getInstalledAgents: 'getInstalledAgents',

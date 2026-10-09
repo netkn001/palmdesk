@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'path';
 import { platform } from 'process';
 
@@ -20,10 +21,20 @@ import {
 
 import { IPC_EVENT } from '../src/event';
 import { WINDOW_ID_ENUM } from '../src/pure-constant';
+import {
+  isPrintLinkInvocation,
+  readConnectionRecord,
+} from '../src/utils/host-identity';
 
 import { AgentLauncher } from './agent-launcher';
 import { assertUniqueApplicationIdentity } from './app-identity';
 import { CaptureSession, InputUnavailableError } from './capture-session';
+import {
+  hostLinkSupported,
+  resolveInstanceId,
+  runPrintLink,
+  writeConnectionRecord,
+} from './host-link';
 import {
   pasteClipboardImage,
   pasteWindowsClipboardImage,
@@ -78,12 +89,18 @@ const appName = app.isPackaged
   ? app.getName()
   : process.env.PALMDESK_APP_NAME || 'PalmDesk Dev';
 app.setName(appName);
-const userData = path.join(app.getPath('appData'), appName);
+// `--print-link` runs beside the resident instance; keep its profile separate.
+const printLinkMode = isPrintLinkInvocation(process.argv);
+const userData = printLinkMode
+  ? path.join(tmpdir(), `${appName}-print-link-${process.pid}`)
+  : path.join(app.getPath('appData'), appName);
 mkdirSync(userData, { recursive: true });
 app.setPath('userData', userData);
 app.setPath('sessionData', userData);
 
 const windowNormalParams = { width: 960, height: 720 };
+/** Verified cloud instance ID; empty until the metadata service answers. */
+let hostInstanceId = '';
 let winBounds: Electron.Rectangle | null;
 const mainWindowId = WINDOW_ID_ENUM.remote;
 const windowMap = new Map<number, BrowserWindow>();
@@ -465,6 +482,50 @@ function main() {
 
     return res;
   });
+
+  ipcMain.handle(
+    IPC_EVENT.getHostInstanceId,
+    async (_event, reqData: IIpcRendererData) => {
+      const { requestId, data } = reqData;
+      if (!hostLinkSupported(platform))
+        return {
+          requestId,
+          code: 0,
+          data: { supported: false, instanceId: '' },
+        };
+      const waitMs = Math.min(Math.max(Number(data?.waitMs) || 0, 0), 120_000);
+      if (!hostInstanceId) hostInstanceId = await resolveInstanceId(waitMs);
+      return {
+        requestId,
+        code: 0,
+        data: { supported: true, instanceId: hostInstanceId },
+      };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_EVENT.publishConnectionLink,
+    (_event, reqData: IIpcRendererData) => {
+      const { requestId, data } = reqData;
+      // Only publish links for a verified instance; never stamp a guess.
+      const record = readConnectionRecord({
+        instanceId: hostInstanceId,
+        device: data?.device,
+        password: data?.password,
+        url: data?.url,
+        updatedAt: new Date().toISOString(),
+      });
+      if (!hostLinkSupported(platform) || !record)
+        return { requestId, code: 1, data: {} };
+      try {
+        writeConnectionRecord(record);
+        return { requestId, code: 0, data: {} };
+      } catch (error) {
+        console.log('写入连接信息失败', error);
+        return { requestId, code: 1, data: {}, msg: String(error) };
+      }
+    }
+  );
 
   ipcMain.handle(
     IPC_EVENT.shellOpenExternal,
@@ -983,6 +1044,17 @@ function main() {
 }
 
 app.on('ready', async () => {
+  if (printLinkMode) {
+    // Skip the singleton handoff so the resident instance is left untouched.
+    const code = await runPrintLink(process.argv, platform);
+    try {
+      rmSync(userData, { recursive: true, force: true });
+    } catch {
+      // Chromium may still hold profile files; the temp dir is disposable.
+    }
+    app.exit(code);
+    return;
+  }
   try {
     if (platform === 'darwin') {
       const identity =

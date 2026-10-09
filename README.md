@@ -134,7 +134,21 @@ Choose **High detail** (高细节) for the previous 2160p / 30 fps / 8000 kbit/s
 
 Pinch with two fingers inside the window view to zoom from fit to 300%, centered on the gesture. Move both fingers to pan; after lifting one finger, the remaining finger can keep panning until lifted. These gestures move only the local video view, leaving the toolbar and text composer in place. For one-finger panning, select **移动画面** (Pan) or **仅观看** (Watch only); other touch modes retain remote control. The zoom selector shows the current scale; choose **适合** (Fit) to reset the view.
 
-To enable QR connections, configure the phone-accessible web client homepage in the desktop's QR connection area, then choose “显示二维码” (Show QR code). The temporary password and QR code start concealed on every launch and have independent Show/Hide controls. Scan with the web client's scanner, the system camera, or WeChat. The code includes the device code and temporary password; changing the password invalidates old codes and conceals the new credentials. See [QR connection configuration](docs/SERVICE_CONFIGURATION.md#扫码连接) for URL requirements, HTTPS, and WeChat compatibility.
+To enable QR connections, configure the phone-accessible web client homepage in the desktop's QR connection area, then choose “显示二维码” (Show QR code). The device password and QR code start concealed on every launch and have independent Show/Hide controls. Scan with the web client's scanner, the system camera, or WeChat. The code includes the device code and password. Device passwords are permanent: the desktop offers no password rotation, so links stay valid until the device is reset. See [QR connection configuration](docs/SERVICE_CONFIGURATION.md#扫码连接) for URL requirements, HTTPS, and WeChat compatibility.
+
+### Cloned Windows hosts and `--print-link`
+
+Hosts cloned from one Windows image would otherwise share the template's device code and password. On Alibaba Cloud ECS, PalmDesk reads the instance ID from `http://100.100.100.200/latest/meta-data/instance-id` at startup and records which instance owns the cached credentials. When the ID differs, or credentials predate this check, the host discards them and requests a new device from the backend. If the metadata service does not answer within about a minute and the profile has previously recorded an instance ID, PalmDesk does not go online with the cached credentials and keeps retrying. Hosts without the metadata service, such as local or non-cloud machines, keep their existing credentials.
+
+Once signed in, a Windows host writes its connection link to `C:\ProgramData\PalmDesk\connection.json` (`instanceId`, `device`, `password`, `url`, `updatedAt`), using the configured phone web client homepage. External tooling can then run the following remotely, for example through Cloud Assistant. Adjust the path to match your installation; `C:\app_manager\PalmDesk` is the default used by `scripts/windows/setup-unattended-host.ps1`:
+
+```powershell
+& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link              # one line: the connection URL
+& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link --json       # full record
+& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link --timeout=30 --output=C:\temp\link.txt
+```
+
+`--print-link` opens no window and leaves the running instance untouched. It only prints a record whose instance ID matches the current machine, waiting up to `--timeout` seconds (default 60). Exit codes: `0` success, `1` invalid arguments or unsupported platform, `2` link not yet published, `3` record belongs to another instance, `4` instance ID unavailable. PalmDesk is a GUI-subsystem program, so capture its output through redirection, a pipe, or `--output`. An interactive console may show nothing. The file uses default ProgramData permissions and contains the plaintext password; restrict access if the machine has other users. macOS hosts do not publish this file.
 
 ### Open an Agent from your phone
 
