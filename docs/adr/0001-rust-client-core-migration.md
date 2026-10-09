@@ -99,3 +99,12 @@ palmdesk/
 ### 潜在风险与缓解对策 (Risks & Mitigation)
 - **环境依赖**：开发者与打包机器需安装 Rust 工具链。缓解策略：在 CI 流水线中引入跨平台预构建与构建缓存机制。
 - **系统权限继承**：macOS 下辅助进程需要正确的 bundle/签名以正常使用 Accessibility 与 ScreenCaptureKit。缓解策略：保持继承并复用现有 `scripts/sign-macos.cjs` 签名流程。
+
+---
+
+## 5. 当前实施状态 (Implementation Status)
+
+- [x] **Phase 1: Native 窗口服务统一化 (`crates/palmdesk-native`)**：已完成。实现跨平台 stdio JSON-RPC 原生窗口通信协议，全面支持窗口发现、激活、空间切换与缩略图采集，无缝接入 `NativeWindowBridge`。
+- [x] **Phase 2: Session-Core NAPI 重构 (`crates/palmdesk-session-core`)**：已完成。基于 `napi-rs` + `memmap2` + `sha2` 实现零拷贝大日志极速读取，经 `test:session-core` 全套 83 项单元测试验证 100% 兼容。
+- [x] **Phase 3: 模拟输入核心 (`crates/palmdesk-input`)**：已完成。基于 OS-native（macOS CGEvent / Windows SendInput）实现精确光标、连击、滚轮、按键与组合快捷键映射，接入 Electron `CaptureSession`，具备无缝运行时回退能力并通过 349 项 Smoke 测试。
+

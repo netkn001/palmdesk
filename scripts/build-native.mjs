@@ -28,18 +28,6 @@ async function buildRust() {
     return false;
   }
 
-  const existingOutput = await stat(output).catch(() => null);
-  const rustSource = path.join(root, 'crates/palmdesk-native/src');
-  const existingSource = await stat(rustSource).catch(() => null);
-  if (
-    existingOutput &&
-    existingSource &&
-    existingOutput.mtimeMs >= existingSource.mtimeMs &&
-    existsSync(targetBinary)
-  ) {
-    return true;
-  }
-
   await mkdir(path.dirname(output), { recursive: true });
   execFileSync(
     'cargo',

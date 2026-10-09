@@ -179,10 +179,84 @@ mod macos_input {
         }
     }
 
+    fn nut_to_macos_key(k: u32) -> u16 {
+        match k {
+            0 => 53,   // Escape
+            28 => 50,  // Grave
+            29 => 18,  // Num1
+            30 => 19,  // Num2
+            31 => 20,  // Num3
+            32 => 21,  // Num4
+            33 => 23,  // Num5
+            34 => 22,  // Num6
+            35 => 26,  // Num7
+            36 => 28,  // Num8
+            37 => 25,  // Num9
+            38 => 29,  // Num0
+            39 => 27,  // Minus
+            40 => 24,  // Equal
+            41 => 51,  // Backspace
+            49 => 48,  // Tab
+            50 => 12,  // Q
+            51 => 13,  // W
+            52 => 14,  // E
+            53 => 15,  // R
+            54 => 17,  // T
+            55 => 16,  // Y
+            56 => 32,  // U
+            57 => 34,  // I
+            58 => 31,  // O
+            59 => 35,  // P
+            60 => 33,  // LeftBracket
+            61 => 30,  // RightBracket
+            62 => 42,  // Backslash
+            63 => 117, // Delete
+            70 => 57,  // CapsLock
+            71 => 0,   // A
+            72 => 1,   // S
+            73 => 2,   // D
+            74 => 3,   // F
+            75 => 5,   // G
+            76 => 4,   // H
+            77 => 38,  // J
+            78 => 40,  // K
+            79 => 37,  // L
+            80 => 41,  // Semicolon
+            81 => 39,  // Quote
+            82 => 36,  // Return
+            86 => 56,  // LeftShift
+            87 => 6,   // Z
+            88 => 7,   // X
+            89 => 8,   // C
+            90 => 9,   // V
+            91 => 11,  // B
+            92 => 45,  // N
+            93 => 46,  // M
+            94 => 43,  // Comma
+            95 => 47,  // Period
+            96 => 44,  // Slash
+            97 => 60,  // RightShift
+            98 => 126, // Up
+            102 => 36, // Enter
+            103 => 59, // LeftControl
+            106 => 55, // LeftCmd
+            107 => 58, // LeftAlt
+            108 => 49, // Space
+            109 => 61, // RightAlt
+            112 => 54, // RightCmd
+            114 => 62, // RightControl
+            116 => 123,// Left
+            117 => 125,// Down
+            118 => 124,// Right
+            _ => k as u16,
+        }
+    }
+
     pub fn keys_down(keys: &[u32]) {
         unsafe {
             for &k in keys {
-                let ev = CGEventCreateKeyboardEvent(ptr::null(), k as u16, true);
+                let code = nut_to_macos_key(k);
+                let ev = CGEventCreateKeyboardEvent(ptr::null(), code, true);
                 if !ev.is_null() {
                     CGEventPost(K_CGHIDEVENT_TAP, ev);
                     CFRelease(ev);
@@ -194,7 +268,8 @@ mod macos_input {
     pub fn keys_up(keys: &[u32]) {
         unsafe {
             for &k in keys {
-                let ev = CGEventCreateKeyboardEvent(ptr::null(), k as u16, false);
+                let code = nut_to_macos_key(k);
+                let ev = CGEventCreateKeyboardEvent(ptr::null(), code, false);
                 if !ev.is_null() {
                     CGEventPost(K_CGHIDEVENT_TAP, ev);
                     CFRelease(ev);

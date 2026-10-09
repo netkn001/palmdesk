@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'path';
 import { platform } from 'process';
@@ -55,6 +55,19 @@ import type { NativeApplication, NativeWindow } from './native-window';
 import type { nutjsTs } from './types';
 import type { ICaptureSource, IIpcRendererData } from '../src/pure-interface';
 
+interface NativeInputBindings {
+  mouseSetPosition: (x: number, y: number) => void;
+  mouseButtonDown: (button: string) => void;
+  mouseButtonUp: (button: string) => void;
+  mouseClick: (button: string, doubleClick: boolean) => void;
+  mouseScroll: (direction: string, amount: number) => void;
+  keyboardType: (text: string) => void;
+  keyboardKeysDown: (keys: number[]) => void;
+  keyboardKeysUp: (keys: number[]) => void;
+  isValidKey: (key: number) => boolean;
+}
+
+let nativeInput: NativeInputBindings | null = null;
 let nutjs: nutjsTs;
 
 const windowsCaptureEnabled =
@@ -142,43 +155,71 @@ async function listCaptureSources(): Promise<ICaptureSource[]> {
 
 const captureSession = new CaptureSession(
   {
-    position: (point) => nutjs.mouse.setPosition(point),
+    position: (point) =>
+      nativeInput
+        ? Promise.resolve(nativeInput.mouseSetPosition(point.x, point.y))
+        : nutjs.mouse.setPosition(point),
     buttonDown: (button) =>
-      nutjs.mouse.pressButton(
-        button === 'left' ? nutjs.Button.LEFT : nutjs.Button.RIGHT
-      ),
+      nativeInput
+        ? Promise.resolve(nativeInput.mouseButtonDown(button))
+        : nutjs.mouse.pressButton(
+            button === 'left' ? nutjs.Button.LEFT : nutjs.Button.RIGHT
+          ),
     buttonUp: (button) =>
-      nutjs.mouse.releaseButton(
-        button === 'left' ? nutjs.Button.LEFT : nutjs.Button.RIGHT
-      ),
+      nativeInput
+        ? Promise.resolve(nativeInput.mouseButtonUp(button))
+        : nutjs.mouse.releaseButton(
+            button === 'left' ? nutjs.Button.LEFT : nutjs.Button.RIGHT
+          ),
     click: (button, double) => {
+      if (nativeInput) {
+        return Promise.resolve(nativeInput.mouseClick(button, Boolean(double)));
+      }
       const value = button === 'left' ? nutjs.Button.LEFT : nutjs.Button.RIGHT;
       return double ? nutjs.mouse.doubleClick(value) : nutjs.mouse.click(value);
     },
     scroll: (direction, amount) => {
+      if (nativeInput) {
+        return Promise.resolve(nativeInput.mouseScroll(direction, amount));
+      }
       if (direction === 'up') return nutjs.mouse.scrollUp(amount);
       if (direction === 'down') return nutjs.mouse.scrollDown(amount);
       if (direction === 'left') return nutjs.mouse.scrollLeft(amount);
       return nutjs.mouse.scrollRight(amount);
     },
-    text: (value, source) =>
-      platform === 'win32'
-        ? nativeWindows.request('text', {
-            nativeId: source.nativeId,
-            ownerPid: source.ownerPid,
-            bundleId: source.bundleId,
-            text: value,
-          })
-        : nutjs.keyboard.type(value),
-    keysDown: (keys) => nutjs.keyboard.pressKey(...keys),
-    keysUp: (keys) => nutjs.keyboard.releaseKey(...keys),
+    text: (value, source) => {
+      if (platform === 'win32') {
+        return nativeWindows.request('text', {
+          nativeId: source.nativeId,
+          ownerPid: source.ownerPid,
+          bundleId: source.bundleId,
+          text: value,
+        });
+      }
+      if (nativeInput) {
+        return Promise.resolve(nativeInput.keyboardType(value));
+      }
+      return nutjs.keyboard.type(value);
+    },
+    keysDown: (keys) =>
+      nativeInput
+        ? Promise.resolve(nativeInput.keyboardKeysDown(keys))
+        : nutjs.keyboard.pressKey(...keys),
+    keysUp: (keys) =>
+      nativeInput
+        ? Promise.resolve(nativeInput.keyboardKeysUp(keys))
+        : nutjs.keyboard.releaseKey(...keys),
     validKey: (key) =>
-      typeof key === 'number' && Object.values(nutjs.Key).includes(key),
+      typeof key === 'number' &&
+      (nativeInput
+        ? nativeInput.isValidKey(key)
+        : Object.values(nutjs.Key).includes(key)),
     canPasteImage: (source) => supportsImagePaste(source, platform),
     pasteImage: (image, source, current) => {
       const clipboardDriver = {
-        decode: (bytes) => nativeImage.createFromBuffer(Buffer.from(bytes)),
-        write: (value) => clipboard.writeImage(value),
+        decode: (bytes: Uint8Array) =>
+          nativeImage.createFromBuffer(Buffer.from(bytes)),
+        write: (value: Electron.NativeImage) => clipboard.writeImage(value),
         read: () => clipboard.readImage(),
       };
       if (platform === 'win32')
@@ -189,9 +230,14 @@ const captureSession = new CaptureSession(
         });
       return pasteClipboardImage(image, current, {
         ...clipboardDriver,
-        press: () => nutjs.keyboard.pressKey(nutjs.Key.LeftCmd, nutjs.Key.V),
+        press: () =>
+          nativeInput
+            ? Promise.resolve(nativeInput.keyboardKeysDown([106, 90]))
+            : nutjs.keyboard.pressKey(nutjs.Key.LeftCmd, nutjs.Key.V),
         release: () =>
-          nutjs.keyboard.releaseKey(nutjs.Key.V, nutjs.Key.LeftCmd),
+          nativeInput
+            ? Promise.resolve(nativeInput.keyboardKeysUp([90, 106]))
+            : nutjs.keyboard.releaseKey(nutjs.Key.V, nutjs.Key.LeftCmd),
       });
     },
   },
@@ -1083,6 +1129,33 @@ app.on('ready', async () => {
     nativeWindows.close();
     app.quit();
     return;
+  }
+  try {
+    const inputCandidates = [
+      path.join(__dirname, '../native-bin/palmdesk_input.node'),
+      app.isPackaged && process.resourcesPath
+        ? path.join(process.resourcesPath, 'native-bin/palmdesk_input.node')
+        : null,
+      app.isPackaged && process.resourcesPath
+        ? path.join(
+            process.resourcesPath,
+            'app.asar.unpacked/native-bin/palmdesk_input.node'
+          )
+        : null,
+    ].filter(Boolean) as string[];
+
+    const targetCandidate = inputCandidates.find((candidate) =>
+      existsSync(candidate)
+    );
+    if (targetCandidate) {
+      // eslint-disable-next-line global-require
+      nativeInput = require(targetCandidate);
+    }
+  } catch (error) {
+    console.warn(
+      'Native input binding unavailable, falling back to nutjs:',
+      error
+    );
   }
   // eslint-disable-next-line global-require -- Keep native bindings external and initialize only after identity validation.
   nutjs = require('@nut-tree-fork/nut-js');
