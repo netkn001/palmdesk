@@ -1304,6 +1304,14 @@ async function initDeskUser() {
       if (res.code === 200) {
         originalPassword.value = cacheStore.deskUserPassword;
         roomId.value = cacheStore.deskUserUuid;
+      } else {
+        const createRes = await fetchDeskUserCreate();
+        if (createRes.code === 200) {
+          cacheStore.deskUserUuid = createRes.data.uuid!;
+          cacheStore.deskUserPassword = createRes.data.password!;
+          originalPassword.value = createRes.data.password!;
+          roomId.value = cacheStore.deskUserUuid;
+        }
       }
     }
   } catch (error) {
@@ -1691,7 +1699,7 @@ function changeDebugUrl() {
 }
 
 async function handleResetDeskuuid() {
-  if (updatingPassword.value || !deviceReady.value) return;
+  if (updatingPassword.value) return;
   deviceReady.value = false;
   cacheStore.deskUserUuid = '';
   cacheStore.deskUserPassword = '';
