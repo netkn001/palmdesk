@@ -48,6 +48,10 @@ async function buildRust() {
       '--release',
       '-p',
       'palmdesk-native',
+      '-p',
+      'palmdesk-session-core',
+      '-p',
+      'palmdesk-input',
       '--manifest-path',
       cargoToml,
     ],
@@ -56,9 +60,27 @@ async function buildRust() {
 
   if (existsSync(targetBinary)) {
     await copyFile(targetBinary, output);
-    return true;
   }
-  return false;
+
+  const sessionCoreLib = isWindows
+    ? path.join(root, 'crates/target/release/palmdesk_session_core.dll')
+    : path.join(root, 'crates/target/release/libpalmdesk_session_core.dylib');
+  const sessionCoreNode = path.join(
+    root,
+    'session-core/palmdesk_session_core.node'
+  );
+  if (existsSync(sessionCoreLib)) {
+    await copyFile(sessionCoreLib, sessionCoreNode);
+  }
+
+  const inputLib = isWindows
+    ? path.join(root, 'crates/target/release/palmdesk_input.dll')
+    : path.join(root, 'crates/target/release/libpalmdesk_input.dylib');
+  const inputNode = path.join(root, 'native-bin/palmdesk_input.node');
+  if (existsSync(inputLib)) {
+    await copyFile(inputLib, inputNode);
+  }
+  return true;
 }
 
 const rustBuilt = await buildRust();

@@ -31,7 +31,10 @@ module.exports = {
     'THIRD_PARTY_NOTICES.md',
     'session-core/LICENSE',
     'session-core/NOTICE',
+    'session-core/*.node',
+    'native-bin/*.node',
   ],
+  asarUnpack: ['**/*.node'],
   mac: {
     identity: channel === 'release' ? signingCertificate.sha1 : undefined,
     sign: './scripts/sign-macos.cjs',

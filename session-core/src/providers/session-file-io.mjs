@@ -1,5 +1,6 @@
 // Shared PalmDesk bounds for the Apache-2.0 Glassline file adapters.
 import { open } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { StringDecoder } from 'node:string_decoder';
 
 const MAX_SESSION_FILE_BYTES = 32 * 1024 * 1024;
@@ -8,6 +9,14 @@ export class SessionFileTooLargeError extends Error {
   constructor() {
     super('会话日志超过 32 MiB，请在原窗口查看');
   }
+}
+
+const require = createRequire(import.meta.url);
+let nativeCore = null;
+try {
+  nativeCore = require('../../palmdesk_session_core.node');
+} catch {
+  // Pure JS fallback
 }
 
 async function* readSessionChunks(filePath) {
@@ -28,6 +37,15 @@ async function* readSessionChunks(filePath) {
 }
 
 export async function readSessionText(filePath) {
+  if (nativeCore) {
+    try {
+      return nativeCore.readSessionTextSync(filePath, MAX_SESSION_FILE_BYTES);
+    } catch (error) {
+      if (error?.message?.includes('超过 32 MiB')) {
+        throw new SessionFileTooLargeError();
+      }
+    }
+  }
   const chunks = [];
   for await (const chunk of readSessionChunks(filePath)) chunks.push(chunk);
   return Buffer.concat(chunks).toString('utf8');

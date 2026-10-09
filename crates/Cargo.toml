@@ -1,5 +1,7 @@
 [workspace]
 members = [
     "palmdesk-native",
+    "palmdesk-session-core",
+    "palmdesk-input",
 ]
 resolver = "2"

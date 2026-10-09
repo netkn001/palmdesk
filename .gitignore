@@ -11,6 +11,7 @@ electron-dist
 native-bin
 target
 crates/target
+*.node
 .local
 .env
 .env.*
