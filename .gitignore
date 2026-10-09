@@ -9,6 +9,8 @@ deploy
 electron-release
 electron-dist
 native-bin
+target
+crates/target
 .local
 .env
 .env.*
