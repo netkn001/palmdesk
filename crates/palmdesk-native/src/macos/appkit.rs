@@ -38,7 +38,9 @@ pub fn path_from_nsurl(ns_url: *mut Object) -> Option<String> {
         return None;
     }
     unsafe {
-        let path: *mut Object = msg_send![ns_url, path];
+        let resolved: *mut Object = msg_send![ns_url, URLByResolvingSymlinksInPath];
+        let target = if resolved.is_null() { ns_url } else { resolved };
+        let path: *mut Object = msg_send![target, path];
         str_from_nsstring(path)
     }
 }
@@ -148,7 +150,7 @@ impl Workspace {
         unsafe {
             let ws: *mut Object = msg_send![class!(NSWorkspace), sharedWorkspace];
             let ns_bundle = nsstring_from_str(bundle_id);
-            let url: *mut Object = msg_send![ws, urlForApplicationWithBundleIdentifier: ns_bundle];
+            let url: *mut Object = msg_send![ws, URLForApplicationWithBundleIdentifier: ns_bundle];
             if url.is_null() {
                 None
             } else {
@@ -162,7 +164,7 @@ impl Workspace {
             let ws: *mut Object = msg_send![class!(NSWorkspace), sharedWorkspace];
             let ns_bundle = nsstring_from_str(bundle_id);
             let array: *mut Object =
-                msg_send![ws, urlsForApplicationsWithBundleIdentifier: ns_bundle];
+                msg_send![ws, URLsForApplicationsWithBundleIdentifier: ns_bundle];
             if array.is_null() {
                 return Vec::new();
             }
