@@ -25,6 +25,11 @@ fn main() {
     {
         macos::appkit::set_activation_policy_prohibited();
     }
+    #[cfg(target_os = "windows")]
+    {
+        windows::init();
+    }
+
 
     let stdin = io::stdin();
     let stdout = io::stdout();
