@@ -4,7 +4,7 @@ const load = require('./load-source.cjs');
 const { CaptureSession, InputUnavailableError, normalizedPoint } = load(
   'electron-main/capture-session.ts'
 );
-const { NativeWindowBridge, matchCaptureSources } = load(
+const { NativeWindowBridge, matchCaptureSources, matchDisplaySources } = load(
   'electron-main/native-window.ts'
 );
 
@@ -731,4 +731,66 @@ test('malformed keys and oversized text never reach the native driver', async ()
     await assert.rejects(h.session.input(sessionId, input));
     assert.equal(h.events.length, 0);
   }
+});
+test('matchDisplaySources creates capture sources for displays with screen boundsSource', () => {
+  const sources = [
+    desktopSource('screen:1:0', 'Screen 1'),
+    desktopSource('window:10:0', 'Not a screen'),
+  ];
+  const displays = [
+    { id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1.25 },
+  ];
+  const resultWin = matchDisplaySources(sources, displays, 1, 'win32');
+  assert.equal(resultWin.length, 1);
+  assert.equal(resultWin[0].id, 'screen:1:0');
+  assert.equal(resultWin[0].captureId, 'screen:1:0');
+  assert.equal(resultWin[0].isOnScreen, true);
+  assert.equal(resultWin[0].boundsSource, 'screen');
+  assert.equal(resultWin[0].ownerPid, 0);
+  assert.equal(resultWin[0].bundleId, 'system.display');
+  assert.deepEqual(resultWin[0].bounds, {
+    x: 0,
+    y: 0,
+    width: 2400,
+    height: 1350,
+  });
+
+  const resultMac = matchDisplaySources(sources, displays, 1, 'darwin');
+  assert.deepEqual(resultMac[0].bounds, {
+    x: 0,
+    y: 0,
+    width: 1920,
+    height: 1080,
+  });
+});
+test('entire screen capture session maps coordinates and receives input', async () => {
+  const screenSource = {
+    id: 'screen:0:0',
+    captureId: 'screen:0:0',
+    isOnScreen: true,
+    nativeId: -1,
+    ownerPid: 0,
+    bundleId: 'system.display',
+    appName: '屏幕',
+    name: '整个屏幕（主显示器）',
+    displayId: '1',
+    thumbnail: '',
+    appIcon: '',
+    isAiTarget: false,
+    isCodex: false,
+    bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    boundsSource: 'screen',
+    inputScale: 1,
+  };
+  const h = harness();
+  h.sources = [screenSource];
+  const { sessionId } = await h.session.begin('screen:0:0');
+  assert.ok(sessionId);
+  await h.session.input(sessionId, { action: 'move', x: 500, y: 500 });
+  await h.session.input(sessionId, { action: 'click', x: 1000, y: 1000 });
+  assert.deepEqual(h.events, [
+    ['position', { x: 960, y: 540 }],
+    ['position', { x: 1919, y: 1079 }],
+    ['click', 'left', false],
+  ]);
 });

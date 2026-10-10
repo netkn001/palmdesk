@@ -1200,7 +1200,9 @@ function invokeCapture(channel: string, data: Record<string, unknown> = {}) {
 }
 
 function getCaptureBoundsWarning(source?: ICaptureSource) {
-  return source && source.boundsSource !== 'window'
+  return source &&
+    source.boundsSource !== 'window' &&
+    source.boundsSource !== 'screen'
     ? '无法读取精确边界，控制已停用'
     : '';
 }

@@ -16,7 +16,7 @@ export interface ICaptureBounds {
   height: number;
 }
 
-export type CaptureBoundsSource = 'window' | 'display' | 'unknown';
+export type CaptureBoundsSource = 'window' | 'screen' | 'display' | 'unknown';
 
 export interface ICaptureSource {
   id: string;

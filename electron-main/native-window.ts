@@ -115,6 +115,76 @@ export function matchCaptureSources(
   return matched.sort((a, b) => Number(b.isAiTarget) - Number(a.isAiTarget));
 }
 
+export interface DisplayInfo {
+  id: number;
+  bounds: ICaptureBounds;
+  scaleFactor?: number;
+  label?: string;
+}
+
+export function matchDisplaySources(
+  sources: Electron.DesktopCapturerSource[],
+  displays: DisplayInfo[],
+  primaryDisplayId?: number,
+  platform: NodeJS.Platform = process.platform
+): ICaptureSource[] {
+  const screenSources = sources.filter((source) =>
+    source.id.startsWith('screen:')
+  );
+  return screenSources.map((source, index) => {
+    let display = displays.find((d) => String(d.id) === source.display_id);
+    if (!display) {
+      const match = /^screen:(\d+):/.exec(source.id);
+      if (match) {
+        display = displays.find((d) => String(d.id) === match[1]);
+      }
+    }
+    if (!display && displays.length === 1) {
+      display = displays[0];
+    }
+    if (!display) {
+      display = displays[index] || displays[0];
+    }
+
+    const scale = platform === 'win32' ? display?.scaleFactor || 1 : 1;
+    const b = display?.bounds || { x: 0, y: 0, width: 1920, height: 1080 };
+    const bounds: ICaptureBounds = {
+      x: Math.round(b.x * scale),
+      y: Math.round(b.y * scale),
+      width: Math.round(b.width * scale),
+      height: Math.round(b.height * scale),
+    };
+
+    const isPrimary = display ? display.id === primaryDisplayId : index === 0;
+    const displayName =
+      source.name ||
+      (isPrimary ? '整个屏幕（主显示器）' : `整个屏幕（显示器 ${index + 1}）`);
+
+    return {
+      id: source.id,
+      captureId: source.id,
+      isOnScreen: true,
+      nativeId: -(index + 1),
+      ownerPid: 0,
+      bundleId: 'system.display',
+      appName: '屏幕',
+      name: displayName,
+      displayId:
+        source.display_id || (display ? String(display.id) : undefined),
+      thumbnail:
+        source && !source.thumbnail.isEmpty()
+          ? `data:image/jpeg;base64,${source.thumbnail.toJPEG(55).toString('base64')}`
+          : '',
+      appIcon: '',
+      isAiTarget: false,
+      isCodex: false,
+      bounds,
+      boundsSource: 'screen' as const,
+      inputScale: 1,
+    };
+  });
+}
+
 export class NativeWindowBridge {
   private child?: ChildProcessWithoutNullStreams;
   private serial: Promise<unknown> = Promise.resolve();
@@ -135,7 +205,9 @@ export class NativeWindowBridge {
   ) {}
 
   async addThumbnails(sources: ICaptureSource[]): Promise<ICaptureSource[]> {
-    const missing = sources.filter((source) => !source.thumbnail);
+    const missing = sources.filter(
+      (source) => !source.thumbnail && source.boundsSource === 'window'
+    );
     if (!missing.length) return sources;
     try {
       const thumbnails = await this.request<WindowThumbnail[]>('thumbnails', {

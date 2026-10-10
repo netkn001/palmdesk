@@ -44,6 +44,7 @@ import {
   NativeWindowBridge,
   NativeWindowError,
   matchCaptureSources,
+  matchDisplaySources,
   nativeHelperPath,
   enableWindowsCapture,
   discoverAgents,
@@ -123,7 +124,7 @@ async function listCaptureSources(): Promise<ICaptureSource[]> {
       'Windows Graphics Capture 已禁用，无法保证窗口控制坐标准确'
     );
   const sources = await desktopCapturer.getSources({
-    types: ['window'],
+    types: ['window', 'screen'],
     thumbnailSize: { width: 320, height: 180 },
     fetchWindowIcons: true,
   });
@@ -134,10 +135,19 @@ async function listCaptureSources(): Promise<ICaptureSource[]> {
     throw new Error(`请为 ${appName} 开启屏幕录制权限并重启应用`);
   }
   const owners = await nativeWindows.request<NativeWindow[]>('list');
-  return matchCaptureSources(
+  const windowSources = matchCaptureSources(
     sources,
     owners.filter((owner) => owner.ownerPid !== process.pid)
   );
+  const displaySources = matchDisplaySources(
+    sources,
+    screen.getAllDisplays(),
+    screen.getPrimaryDisplay().id,
+    platform
+  );
+  const aiTargets = windowSources.filter((w) => w.isAiTarget);
+  const otherWindows = windowSources.filter((w) => !w.isAiTarget);
+  return [...aiTargets, ...displaySources, ...otherWindows];
 }
 
 const captureSession = new CaptureSession(
@@ -163,18 +173,21 @@ const captureSession = new CaptureSession(
     },
     text: (value, source) =>
       platform === 'win32'
-        ? nativeWindows.request('text', {
-            nativeId: source.nativeId,
-            ownerPid: source.ownerPid,
-            bundleId: source.bundleId,
-            text: value,
-          })
+        ? source.boundsSource === 'screen'
+          ? nutjs.keyboard.type(value)
+          : nativeWindows.request('text', {
+              nativeId: source.nativeId,
+              ownerPid: source.ownerPid,
+              bundleId: source.bundleId,
+              text: value,
+            })
         : nutjs.keyboard.type(value),
     keysDown: (keys) => nutjs.keyboard.pressKey(...keys),
     keysUp: (keys) => nutjs.keyboard.releaseKey(...keys),
     validKey: (key) =>
       typeof key === 'number' && Object.values(nutjs.Key).includes(key),
-    canPasteImage: (source) => supportsImagePaste(source, platform),
+    canPasteImage: (source) =>
+      source.boundsSource === 'window' && supportsImagePaste(source, platform),
     pasteImage: (image, source, current) => {
       const clipboardDriver = {
         decode: (bytes) => nativeImage.createFromBuffer(Buffer.from(bytes)),
@@ -197,6 +210,25 @@ const captureSession = new CaptureSession(
   },
   listCaptureSources,
   async (source) => {
+    if (source.boundsSource === 'screen') {
+      const displays = screen.getAllDisplays();
+      const display =
+        displays.find((d) => String(d.id) === source.displayId) ||
+        displays.find((d) => source.id.includes(String(d.id))) ||
+        (displays.length === 1 ? displays[0] : null) ||
+        screen.getPrimaryDisplay();
+      const scale = platform === 'win32' ? display?.scaleFactor || 1 : 1;
+      const b = display?.bounds || { x: 0, y: 0, width: 1920, height: 1080 };
+      return {
+        ...source,
+        bounds: {
+          x: Math.round(b.x * scale),
+          y: Math.round(b.y * scale),
+          width: Math.round(b.width * scale),
+          height: Math.round(b.height * scale),
+        },
+      };
+    }
     if (
       platform === 'darwin' &&
       !systemPreferences.isTrustedAccessibilityClient(false)

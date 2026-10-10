@@ -43,7 +43,10 @@ export function normalizedPoint(
   x: unknown,
   y: unknown
 ) {
-  if (source.boundsSource !== 'window' || !source.bounds)
+  if (
+    (source.boundsSource !== 'window' && source.boundsSource !== 'screen') ||
+    !source.bounds
+  )
     throw new Error('无法读取精确窗口边界，已停止输入');
   if (
     typeof x !== 'number' ||
@@ -131,7 +134,12 @@ export class CaptureSession {
       await this.release();
       let source = (await this.list()).find((item) => item.id === sourceId);
       if (generation !== this.generation) throw new Error('捕获请求已取消');
-      if (!source || source.boundsSource !== 'window' || !source.bounds)
+      if (
+        !source ||
+        (source.boundsSource !== 'window' &&
+          source.boundsSource !== 'screen') ||
+        !source.bounds
+      )
         throw new Error('选定窗口已不可用');
       if (
         expectedSource &&
@@ -140,6 +148,9 @@ export class CaptureSession {
       )
         throw new Error('选定窗口身份已变化，请刷新窗口列表');
       if (!source.isOnScreen || !source.captureId) {
+        if (source.boundsSource === 'screen') {
+          throw new Error('选定屏幕当前不可用');
+        }
         const focused = await this.focus(source);
         if (generation !== this.generation) throw new Error('捕获请求已取消');
         if (!sameWindow(source, focused)) throw new Error('选定窗口身份已变化');
