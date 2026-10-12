@@ -9,7 +9,7 @@ const config = (now) => ({ iceServers: [{ urls: 'turn:turn.test:3478', username:
 test('desktop defaults include API, signaling and the phone homepage; web stays same-origin', () => {
   const { serviceDefaults } = loadSource('src/utils/service-defaults.ts');
   assert.deepEqual(serviceDefaults('file:', 'null'), {
-    api: 'https://palmdesk.abreto.icu/api', signaling: 'https://palmdesk.abreto.icu', client: 'https://palmdesk.abreto.icu/',
+    api: 'https://palmdesk-hk-test.ziniaocloud.com/api', signaling: 'https://palmdesk-hk-test.ziniaocloud.com', client: 'https://palmdesk-hk-test.ziniaocloud.com/',
   });
   assert.deepEqual(serviceDefaults('https:', 'https://selfhost.test'), {
     api: '/api', signaling: 'https://selfhost.test', client: '',

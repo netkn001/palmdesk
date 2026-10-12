@@ -6,7 +6,7 @@ AI-native remote control for desktop apps: read local AI sessions and control on
 
 PalmDesk is maintained by [Abreto](https://github.com/Abreto) and built on the open-source edition of [BilldDesk](https://github.com/galaxy-s10/billd-desk). Its AI-native design centers on how people use AI agents: discover agent applications, read supported local sessions, and continue working in the original application window. From a phone browser, interact with Codex, ChatGPT, Claude, Kimi, ZCode, or a terminal on macOS or Windows. A desktop browser can also act as the controller.
 
-**Status: experimental preview, with no stable release yet.** Packaged desktop builds connect to the official backend at [https://palmdesk.abreto.icu](https://palmdesk.abreto.icu) by default. After connecting, the controller opens session reading if enabled on the host; otherwise it opens the Agent directory. Window capture starts only after you select a window. Automatically reopening the last selected window is planned. Historical dependency audit results and release prerequisites are recorded in the [open-source readiness notes](docs/OPEN_SOURCE_READINESS.md).
+**Status: experimental preview, with no stable release yet.** Packaged desktop builds connect to the official backend at [https://palmdesk-hk-test.ziniaocloud.com](https://palmdesk-hk-test.ziniaocloud.com) by default. After connecting, the controller opens session reading if enabled on the host; otherwise it opens the Agent directory. Window capture starts only after you select a window. Automatically reopening the last selected window is planned. Historical dependency audit results and release prerequisites are recorded in the [open-source readiness notes](docs/OPEN_SOURCE_READINESS.md).
 
 ## Session Reading Preview
 
@@ -74,7 +74,7 @@ Intel Mac installers are not provided. Mac previews are built on macOS 15; earli
 
 Source development requires Node.js 22.16.0 or later and pnpm 11.19.0, as pinned in `package.json`. macOS desktop development requires Xcode Command Line Tools. On Windows, the helper uses the system .NET Framework 4.x compiler; Visual Studio is not required.
 
-Packaged desktop builds default to `https://palmdesk.abreto.icu`, including the phone invitation homepage. Browser builds use their current origin; development uses the local backend proxy. Both clients must connect to the same service. For self-hosting, the [container adapter](containers/README.md) builds the pinned BilldDesk backend with PalmDesk session authentication and Cloudflare/coturn credential issuance; MySQL and Redis are required. See the [local development guide](docs/LOCAL_DEVELOPMENT.md) and [service configuration](docs/SERVICE_CONFIGURATION.md).
+Packaged desktop builds default to `https://palmdesk-hk-test.ziniaocloud.com`, including the phone invitation homepage. Browser builds use their current origin; development uses the local backend proxy. Both clients must connect to the same service. For self-hosting, the [container adapter](containers/README.md) builds the pinned BilldDesk backend with PalmDesk session authentication and Cloudflare/coturn credential issuance; MySQL and Redis are required. See the [local development guide](docs/LOCAL_DEVELOPMENT.md) and [service configuration](docs/SERVICE_CONFIGURATION.md).
 
 ### Start the Desktop Client
 

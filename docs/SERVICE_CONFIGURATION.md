@@ -12,9 +12,9 @@
 
 | 配置                   | 浏览器默认      | 打包后的 Electron 默认  | 测试环境（ssh-hk） |
 | ---------------------- | --------------- | ----------------------- | ------------------ |
-| `VITE_API_BASE_URL`    | `/api`          | `https://palmdesk.abreto.icu/api` | `https://palmdesk-hk-test.ziniaocloud.com/api` |
-| `VITE_SIGNALING_URL`   | 当前网页 origin | `https://palmdesk.abreto.icu` | `https://palmdesk-hk-test.ziniaocloud.com` |
-| `VITE_CLIENT_BASE_URL` | 空，手机端无需设置 | `https://palmdesk.abreto.icu/` | `https://palmdesk-hk-test.ziniaocloud.com/` |
+| `VITE_API_BASE_URL`    | `/api`          | `https://palmdesk-hk-test.ziniaocloud.com/api` | `https://palmdesk-hk-test.ziniaocloud.com/api` |
+| `VITE_SIGNALING_URL`   | 当前网页 origin | `https://palmdesk-hk-test.ziniaocloud.com` | `https://palmdesk-hk-test.ziniaocloud.com` |
+| `VITE_CLIENT_BASE_URL` | 空，手机端无需设置 | `https://palmdesk-hk-test.ziniaocloud.com/` | `https://palmdesk-hk-test.ziniaocloud.com/` |
 | `VITE_TURN_URL`        | 空，后端自动下发 | 空，后端自动下发        | 空，后端自动下发 |
 | `VITE_TURN_USERNAME`   | 空              | 空                      | 空 |
 | `VITE_TURN_CREDENTIAL` | 空              | 空                      | 空 |

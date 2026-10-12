@@ -6,7 +6,7 @@
 
 PalmDesk 由 [Abreto](https://github.com/Abreto) 维护，基于 [BilldDesk](https://github.com/galaxy-s10/billd-desk) 开源版开发。产品以 agent-ready workflows 为目标，围绕用户使用 AI agent 的流程做专门优化：发现 Agent 应用、阅读支持的本地会话，再回到原应用窗口继续操作。从手机浏览器即可与 macOS 或 Windows 上的 Codex、ChatGPT、Claude、Kimi、ZCode 或终端交互；电脑浏览器也可作为控制端。
 
-**状态：实验性预览版，尚未发布稳定版。** 打包后的桌面客户端默认连接官方后端 [https://palmdesk.abreto.icu](https://palmdesk.abreto.icu)。连接设备后，电脑已开启会话阅读时默认进入阅读页，否则进入 Agent 目录；选择窗口后才开始捕获。“打开即恢复到上次窗口”属于后续计划。历史依赖审计结果和发布前待办见 [开源准备记录](docs/OPEN_SOURCE_READINESS.md)。
+**状态：实验性预览版，尚未发布稳定版。** 打包后的桌面客户端默认连接官方后端 [https://palmdesk-hk-test.ziniaocloud.com](https://palmdesk-hk-test.ziniaocloud.com)。连接设备后，电脑已开启会话阅读时默认进入阅读页，否则进入 Agent 目录；选择窗口后才开始捕获。“打开即恢复到上次窗口”属于后续计划。历史依赖审计结果和发布前待办见 [开源准备记录](docs/OPEN_SOURCE_READINESS.md)。
 
 ## 会话阅读（预览）
 
@@ -85,7 +85,7 @@ pnpm dev:desktop
 
 Windows PowerShell 将复制环境文件的命令替换为 `Copy-Item .env.example .env.local`。首次运行会编译 `native-bin/palmdesk-window.exe`，随后启动 Electron。使用 `pnpm dev:desktop:lan` 可开放开发网页供局域网手机访问。Windows 运行和测试说明见 [Windows 桌面](docs/LOCAL_DEVELOPMENT.md#windows-桌面)。
 
-打包后的桌面客户端默认连接 `https://palmdesk.abreto.icu`，手机邀请网页也使用该地址。网页构建默认同源，开发模式使用本地后端代理，两端必须连接同一个服务。自部署可使用本仓库的 [容器适配层](containers/README.md)，它基于固定 BilldDesk 后端快照提供会话认证和 Cloudflare/coturn 临时凭据，需要 MySQL 和 Redis。部署顺序和浏览器测试方法见 [开发环境](docs/LOCAL_DEVELOPMENT.md)，地址、HTTPS 和 TURN 配置见 [服务配置](docs/SERVICE_CONFIGURATION.md)。
+打包后的桌面客户端默认连接 `https://palmdesk-hk-test.ziniaocloud.com`，手机邀请网页也使用该地址。网页构建默认同源，开发模式使用本地后端代理，两端必须连接同一个服务。自部署可使用本仓库的 [容器适配层](containers/README.md)，它基于固定 BilldDesk 后端快照提供会话认证和 Cloudflare/coturn 临时凭据，需要 MySQL 和 Redis。部署顺序和浏览器测试方法见 [开发环境](docs/LOCAL_DEVELOPMENT.md)，地址、HTTPS 和 TURN 配置见 [服务配置](docs/SERVICE_CONFIGURATION.md)。
 
 使用默认 `.env.local` 时，设备注册和连接需要本机 `4300` 端口上的后端；启动桌面端或网页不会自动启动后端。使用其他服务时，在 `.env.local` 或客户端连接设置中配置地址，界面保存的设置优先于环境变量默认值。
 

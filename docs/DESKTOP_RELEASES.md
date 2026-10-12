@@ -73,6 +73,6 @@ pnpm dist:win --release
 
 ## 用户安装与后续发行
 
-用户打开 DMG 并将应用拖入 Applications，或运行 Windows 安装向导，无需安装 Node.js、pnpm 或开发工具。macOS 远控需要屏幕录制和辅助功能权限。默认连接 `https://palmdesk.abreto.icu`；手机网页和桌面端必须使用同一服务，安装包不包含服务端。
+用户打开 DMG 并将应用拖入 Applications，或运行 Windows 安装向导，无需安装 Node.js、pnpm 或开发工具。macOS 远控需要屏幕录制和辅助功能权限。默认连接 `https://palmdesk-hk-test.ziniaocloud.com`；手机网页和桌面端必须使用同一服务，安装包不包含服务端。
 
 CI 的源码检查和打包验证不能替代真实屏幕捕获、键鼠输入、权限恢复、手机及跨网络 TURN 验收。稳定分发前继续处理 [发行前提](OPEN_SOURCE_READINESS.md)，并接入 macOS Developer ID 签名与公证及 Windows 代码签名。证书和私钥只通过 CI 的安全配置提供，不写入仓库或 `VITE_*` 变量。
