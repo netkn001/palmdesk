@@ -25,6 +25,7 @@ function parse(event: MessageEvent) {
 
 export class ReaderClient {
   private pending = new Map<string, Pending>();
+  private pushListeners = new Set<(data: any) => void>();
   private sequence = 0;
   private closed = false;
 
@@ -36,6 +37,11 @@ export class ReaderClient {
     incoming.addEventListener('message', this.receive);
     incoming.addEventListener('close', this.dispose);
     outgoing.addEventListener('close', this.dispose);
+  }
+
+  onPush(listener: (data: any) => void): () => void {
+    this.pushListeners.add(listener);
+    return () => this.pushListeners.delete(listener);
   }
 
   request<T>(request: Request): Promise<T> {
@@ -66,6 +72,16 @@ export class ReaderClient {
   private receive = (event: MessageEvent) => {
     const frame = parse(event);
     if (!frame) return;
+    if (frame.type === 'push') {
+      this.pushListeners.forEach((listener) => {
+        try {
+          listener(frame.data);
+        } catch {
+          /* ignore */
+        }
+      });
+      return;
+    }
     if (frame.type === 'reset') {
       this.pending.forEach((_value, id) => this.fail(id, '会话读取设置已更改'));
       this.onReset();
@@ -120,6 +136,7 @@ export class ReaderClient {
     this.incoming.removeEventListener('message', this.receive);
     this.incoming.removeEventListener('close', this.dispose);
     this.outgoing.removeEventListener('close', this.dispose);
+    this.pushListeners.clear();
     this.pending.forEach((_value, id) => this.fail(id, '会话通道已断开'));
   };
 }
@@ -148,6 +165,16 @@ export class ReaderHost {
       this.outgoing.send(JSON.stringify({ type: 'reset' }));
   }
 
+  push(data: unknown) {
+    if (this.closed || !this.allowed('status') || this.outgoing.readyState !== 'open')
+      return;
+    try {
+      this.outgoing.send(JSON.stringify({ type: 'push', data }));
+    } catch {
+      /* ignore send failure */
+    }
+  }
+
   private receive = (event: MessageEvent) => {
     const frame = parse(event);
     if (
@@ -155,7 +182,9 @@ export class ReaderHost {
       typeof frame.id !== 'string' ||
       !/^\d{1,12}$/.test(frame.id) ||
       !frame.request ||
-      !['status', 'list', 'read'].includes(frame.request.method) ||
+      !['status', 'list', 'read', 'watch', 'unwatch'].includes(
+        frame.request.method
+      ) ||
       event.data.length > 4096
     )
       return;

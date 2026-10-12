@@ -48,6 +48,7 @@ export const IPC_EVENT = {
   sessionReaderSettings: 'sessionReaderSettings',
   sessionReaderConfigure: 'sessionReaderConfigure',
   sessionReaderRequest: 'sessionReaderRequest',
+  sessionReaderPush: 'sessionReaderPush',
   beginCapture: 'beginCapture',
   stopCapture: 'stopCapture',
   remoteInput: 'remoteInput',

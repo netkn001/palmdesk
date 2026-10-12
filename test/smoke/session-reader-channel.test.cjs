@@ -88,3 +88,35 @@ test('out-of-order fragments fail rather than displaying a partial result', asyn
   h.clientIn.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'response', id: '1', index: 1, total: 2, text: '{}' }) }));
   await assert.rejects(pending, /不完整/);
 });
+
+test('ReaderHost push delivers real-time incremental frames to ReaderClient onPush listener', async (t) => {
+  const handled = [];
+  const h = connection(t, async (request) => {
+    handled.push(request);
+    return { watched: true };
+  });
+
+  const pushes = [];
+  const unlisten = h.client.onPush((data) => pushes.push(data));
+
+  // Client sends watch request
+  const watchResult = await h.client.request({ method: 'watch', id: 'session-123' });
+  assert.deepEqual(watchResult, { watched: true });
+  assert.equal(handled[0].method, 'watch');
+  assert.equal(handled[0].id, 'session-123');
+
+  // Host pushes an incremental frame
+  const frame = { id: 'session-123', event: 'append', turnState: 'thinking' };
+  h.host.push(frame);
+  await tick();
+
+  assert.equal(pushes.length, 1);
+  assert.deepEqual(pushes[0], frame);
+
+  // Unlisten removes callback
+  unlisten();
+  h.host.push({ id: 'session-123', event: 'append', turnState: 'idle' });
+  await tick();
+  assert.equal(pushes.length, 1);
+});
+

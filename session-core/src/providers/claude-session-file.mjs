@@ -95,9 +95,9 @@ export function createClaudeSessionFileCatalog({
   });
 }
 
-export async function parseClaudeSessionFile(filePath, { fileStat } = {}) {
+export async function parseClaudeSessionFile(filePath, { fileStat, includeThinking = false } = {}) {
   const parsed = await readClaudeSessionRecords(filePath, { fileStat });
-  return buildClaudeSession(parsed, { includeTimeline: true });
+  return buildClaudeSession(parsed, { includeTimeline: true, includeThinking });
 }
 
 export async function getClaudeSessionFileSession(id, options = {}) {
@@ -110,7 +110,9 @@ export async function getClaudeSessionFileSession(id, options = {}) {
   }
 
   try {
-    const session = await parseClaudeSessionFile(filePath);
+    const session = await parseClaudeSessionFile(filePath, {
+      includeThinking: options.includeThinking ?? false
+    });
     return session?.id === id ? session : null;
   } catch (error) {
     if (error instanceof SessionFileTooLargeError) throw error;
@@ -124,9 +126,10 @@ export async function getClaudeSessionFileTimelinePage(
   options = {}
 ) {
   const claudeConfigDir = options.claudeConfigDir ?? resolveClaudeConfigDir();
-  const { limit, cursor } = options;
+  const { limit, cursor, includeThinking = false } = options;
   const session = await getClaudeSessionFileSession(id, {
     claudeConfigDir,
+    includeThinking,
     ...(Object.hasOwn(options, "sessionFilePath")
       ? { sessionFilePath: options.sessionFilePath }
       : {})
@@ -286,7 +289,7 @@ async function readClaudeSessionRecords(filePath, { fileStat: knownFileStat } = 
   };
 }
 
-function buildClaudeSession(parsed, { includeTimeline }) {
+function buildClaudeSession(parsed, { includeTimeline, includeThinking = false }) {
   const { filePath, fileUpdatedAt, records, parseErrors, rawAvailable } = parsed;
   const sessionUuid = sessionUuidFromRecords(records) ?? sessionUuidFromFilePath(filePath);
   if (!sessionUuid) {
@@ -317,7 +320,7 @@ function buildClaudeSession(parsed, { includeTimeline }) {
   };
   const summary = summarizeConversation(activeRecords);
   const timeline = includeTimeline
-    ? timelineFromRecords(activeRecords, sourceRef, fileUpdatedAt, sessionUuid)
+    ? timelineFromRecords(activeRecords, sourceRef, fileUpdatedAt, sessionUuid, includeThinking)
     : [];
   const messageSummary = includeTimeline ? summarizeTimelineMessages(timeline) : summary;
 
@@ -451,7 +454,7 @@ function summarizeTimelineMessages(timeline) {
   };
 }
 
-function timelineFromRecords(records, sourceRef, fallbackCreatedAt, sessionUuid) {
+function timelineFromRecords(records, sourceRef, fallbackCreatedAt, sessionUuid, includeThinking = false) {
   const timeline = [];
   const callsById = new Map();
 
@@ -459,7 +462,7 @@ function timelineFromRecords(records, sourceRef, fallbackCreatedAt, sessionUuid)
     const createdAt = toIsoTimestamp(record.timestamp) ?? fallbackCreatedAt;
 
     if (record.type === "assistant") {
-      addAssistantContent(timeline, callsById, record, createdAt, sourceRef, sessionUuid);
+      addAssistantContent(timeline, callsById, record, createdAt, sourceRef, sessionUuid, includeThinking);
       continue;
     }
 
@@ -471,12 +474,23 @@ function timelineFromRecords(records, sourceRef, fallbackCreatedAt, sessionUuid)
   return timeline;
 }
 
-function addAssistantContent(timeline, callsById, record, createdAt, sourceRef, sessionUuid) {
+function addAssistantContent(timeline, callsById, record, createdAt, sourceRef, sessionUuid, includeThinking = false) {
   const content = record.message?.content;
   const blocks = Array.isArray(content) ? content : [{ type: "text", text: content }];
 
   for (const [index, block] of blocks.entries()) {
     if (!block || typeof block !== "object") {
+      continue;
+    }
+
+    if (includeThinking && block.type === "thinking" && validString(block.thinking)) {
+      timeline.push({
+        id: timelineItemId(record, index, "thinking", sessionUuid),
+        type: "thinking",
+        createdAt,
+        content: block.thinking,
+        sourceRefs: [sourceRef]
+      });
       continue;
     }
 

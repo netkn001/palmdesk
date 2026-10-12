@@ -8,6 +8,7 @@ export interface ReaderSession {
   recentMessage: string;
   quality: string;
   turnState: string;
+  statusDetail?: string;
 }
 export interface ReaderItem {
   id: string;
@@ -39,5 +40,6 @@ export function createSessionReader(options?: {
   claudeDesktopDataDir?: string;
 }): {
   list(query?: string): Promise<ReaderList>;
-  read(id: string, cursor?: string): Promise<ReaderPage>;
+  read(id: string, cursor?: string, options?: { includeThinking?: boolean }): Promise<ReaderPage>;
+  watch(id: string, onUpdate: (page: ReaderPage) => void): Promise<() => void>;
 };

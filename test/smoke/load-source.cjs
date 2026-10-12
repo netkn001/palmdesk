@@ -17,6 +17,7 @@ module.exports = function loadSource(relative, overrides = {}) {
   instance.paths = Module._nodeModulePaths(path.dirname(filename));
   const originalRequire = instance.require.bind(instance);
   instance.require = (id) => {
+    if (id.endsWith('.css')) return {};
     if (id in overrides) return overrides[id];
     const candidate = id.startsWith('@/')
       ? path.resolve(__dirname, '../../src', id.slice(2))

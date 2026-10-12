@@ -881,7 +881,12 @@ function main() {
     sessionReader.configure(data.enabled)
   );
   captureHandler(IPC_EVENT.sessionReaderRequest, (data) =>
-    sessionReader.request(data)
+    sessionReader.request(data, (update) => {
+      const mainWindow = windowMap.get(mainWindowId);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_EVENT.sessionReaderPush, update);
+      }
+    })
   );
   captureHandler(IPC_EVENT.beginCapture, (data) =>
     captureSession.begin(String(data.sourceId || ''), data.expectedSource)

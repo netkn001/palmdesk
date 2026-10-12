@@ -1,4 +1,4 @@
-// PalmDesk's read-only entry point. Provider/parser code originated in Glassline.
+import { watchFile, unwatchFile } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 import { createCodexProvider } from './src/providers/codex.mjs';
@@ -29,7 +29,7 @@ export function createSessionReader(options = {}) {
     );
   }
 
-  return {
+  const readerInstance = {
     async list(query = '') {
       const sessions = (await Promise.all(providers.map(listProvider))).flat();
       const search = String(query).trim().toLocaleLowerCase();
@@ -48,7 +48,7 @@ export function createSessionReader(options = {}) {
       return { sessions: matches.slice(0, 100), total: matches.length };
     },
 
-    async read(id, cursor) {
+    async read(id, cursor, readOptions = {}) {
       if (typeof id !== 'string' || !sessionIdPattern.test(id))
         throw new Error('无效的会话标识');
       if (
@@ -64,6 +64,7 @@ export function createSessionReader(options = {}) {
       const page = await provider.getSessionTimelinePage(id, {
         limit: 40,
         cursor,
+        includeThinking: readOptions.includeThinking ?? options.includeThinking ?? false,
       });
       if (!page) throw new Error('无法读取会话，请确认源文件仍然可用');
       return {
@@ -73,7 +74,44 @@ export function createSessionReader(options = {}) {
         hasMore: page.hasMore,
       };
     },
+
+    async watch(id, onUpdate) {
+      if (typeof id !== 'string' || !sessionIdPattern.test(id))
+        throw new Error('无效的会话标识');
+      const provider = providerById.get(sessionIdPattern.exec(id)[1]);
+      if (!provider) throw new Error('不支持的会话来源');
+      const session = await provider.getSession(id);
+      const filePath = session?.sources?.find(
+        (entry) => entry.kind === 'session-file'
+      )?.path;
+      if (!filePath) return () => {};
+
+      let disposed = false;
+      const listener = async (curr, prev) => {
+        if (disposed) return;
+        if (curr.mtimeMs !== prev.mtimeMs && curr.size > 0) {
+          try {
+            const page = await readerInstance.read(id, undefined, {
+              includeThinking: true,
+            });
+            if (!disposed && page) {
+              onUpdate(page);
+            }
+          } catch {
+            /* ignore transient concurrent write reads */
+          }
+        }
+      };
+
+      watchFile(filePath, { interval: 400 }, listener);
+      return () => {
+        disposed = true;
+        unwatchFile(filePath, listener);
+      };
+    },
   };
+
+  return readerInstance;
 }
 
 function summary(session) {
@@ -90,6 +128,7 @@ function summary(session) {
     recentMessage: clip(session.recentMessage, 300),
     quality: session.quality || 'partial',
     turnState: session.turnState || 'unknown',
+    statusDetail: session.statusDetail ? clip(session.statusDetail, 200) : undefined,
   };
 }
 
@@ -98,7 +137,10 @@ function projectItem(item) {
   let text = '';
   let detail = '';
   if (item.type === 'message') text = item.content;
-  else if (item.type === 'command') {
+  else if (item.type === 'thinking') {
+    title = '思考过程';
+    text = item.content;
+  } else if (item.type === 'command') {
     title =
       typeof item.exitCode === 'number'
         ? `命令 · 退出码 ${item.exitCode}`

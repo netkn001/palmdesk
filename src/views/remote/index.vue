@@ -1276,6 +1276,9 @@ function handleInitIpcRendererOn() {
   );
 
   ipcRendererOn(IPC_EVENT.response_workAreaSize, responseWorkAreaSize);
+  ipcRendererOn(IPC_EVENT.sessionReaderPush, (_event, data) => {
+    readerHosts.forEach((host) => host.push(data));
+  });
 }
 
 const HOST_IDENTITY_WAITING = '正在确认云主机身份，暂不使用缓存凭据上线…';

@@ -10,6 +10,8 @@ export class DesktopSessionReader {
   private ready: Promise<void>;
   private saving = false;
 
+  private watchers = new Map<string, () => void>();
+
   constructor(
     private directory: string,
     private platform = process.platform,
@@ -22,6 +24,17 @@ export class DesktopSessionReader {
 
   private get supported() {
     return this.platform === 'darwin' || this.platform === 'win32';
+  }
+
+  private clearWatchers() {
+    this.watchers.forEach((unwatch) => {
+      try {
+        unwatch();
+      } catch {
+        /* ignore cleanup errors */
+      }
+    });
+    this.watchers.clear();
   }
 
   private async load() {
@@ -48,6 +61,7 @@ export class DesktopSessionReader {
     this.saving = true;
     this.generation += 1;
     this.enabled = false;
+    this.clearWatchers();
     this.reader = undefined;
     try {
       await mkdir(this.directory, { recursive: true });
@@ -63,12 +77,15 @@ export class DesktopSessionReader {
     }
   }
 
-  async request(data: {
-    method?: unknown;
-    id?: unknown;
-    cursor?: unknown;
-    query?: unknown;
-  }) {
+  async request(
+    data: {
+      method?: unknown;
+      id?: unknown;
+      cursor?: unknown;
+      query?: unknown;
+    },
+    onPush?: (update: unknown) => void
+  ) {
     await this.ready;
     if (data.method === 'status') return await this.settings();
     if (!this.enabled) throw new Error('请在电脑 PalmDesk 中开启「会话阅读」');
@@ -89,8 +106,26 @@ export class DesktopSessionReader {
     } else if (data.method === 'read') {
       result = await this.reader.read(
         data.id as string,
-        data.cursor as string | undefined
+        data.cursor as string | undefined,
+        { includeThinking: true }
       );
+    } else if (data.method === 'watch') {
+      if (typeof data.id !== 'string') throw new Error('无效的会话标识');
+      this.watchers.get(data.id)?.();
+      this.watchers.delete(data.id);
+      const unwatch = await this.reader.watch(data.id, (update) => {
+        if (this.enabled && generation === this.generation) {
+          onPush?.(update);
+        }
+      });
+      this.watchers.set(data.id, unwatch);
+      result = { watched: true };
+    } else if (data.method === 'unwatch') {
+      if (typeof data.id === 'string') {
+        this.watchers.get(data.id)?.();
+        this.watchers.delete(data.id);
+      }
+      result = { watched: false };
     } else throw new Error('不支持的会话请求');
     if (!this.enabled || generation !== this.generation)
       throw new Error('会话读取已关闭');

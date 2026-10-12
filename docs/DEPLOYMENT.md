@@ -31,6 +31,14 @@ PalmDesk 支持多套服务端环境：
   - 记录类型：`A`
   - 记录值：`47.238.243.40`
 - **SSL 证书**：采用已有通配符证书 `/etc/nginx/conf.d/ziniaocloud.com.pem`（覆盖 `*.ziniaocloud.com`）。
+- **客户端 SSH 配置 (`~/.ssh/config`)**：
+  ```sshconfig
+  Host ssh-hk ali_hk_ip_assessment_99196
+      HostName 47.238.243.40
+      User root
+      IdentityFile ~/.ssh/ali_hk_ip_assessment_99196.pem
+      StrictHostKeyChecking no
+  ```
 
 ### 2.2 服务拓扑架构
 
@@ -179,6 +187,8 @@ services:
     restart: always
     ports:
       - "127.0.0.1:4380:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -322,6 +332,24 @@ VITE_CLIENT_BASE_URL=https://palmdesk-hk-test.ziniaocloud.com/
 ```bash
 ssh-hk  # 或 ssh -i <path-to-pem> root@47.238.243.40
 ```
+
+### Web 前端热更新快速部署
+当本地修改了 Web/移动端界面（如阅读模式），需要快速同步至测试服验证时：
+
+1. **本地构建 Web 产物**：
+   ```bash
+   pnpm build:prod
+   ```
+2. **打包并推送至测试机**：
+   ```bash
+   # 打包并上传
+   tar -czf dist.tar.gz -C dist .
+   scp dist.tar.gz ssh-hk:/opt/palmdesk/dist.tar.gz
+   rm dist.tar.gz
+
+   # 远端解压并重载（或重启 web 容器）
+   ssh ssh-hk "mkdir -p /opt/palmdesk/dist && rm -rf /opt/palmdesk/dist/* && tar -xzf /opt/palmdesk/dist.tar.gz -C /opt/palmdesk/dist && rm -f /opt/palmdesk/dist.tar.gz && docker exec palmdesk-web-1 nginx -s reload"
+   ```
 
 ### 常用管理指令
 ```bash
