@@ -39,7 +39,7 @@ macOS 和 Windows 上另可运行 `pnpm build:native` 和 `pnpm build:desktop`�
 
 ## Windows 桌面
 
-会话阅读与窗口捕获独立，macOS 和 Windows 均默认关闭；在电脑首页显式开启后持久化，关闭会撤销进行中和后续的读取并清空已连接阅读页。
+会话阅读与窗口捕获独立，macOS 和 Windows 均默认开启；在电脑首页设置后持久化，关闭会撤销进行中和后续的读取并清空已连接阅读页。
 
 | 本地来源 | macOS 主机 | Windows 主机 |
 | --- | --- | --- |
@@ -291,4 +291,4 @@ tccutil reset Accessibility 'io.github.abreto.palmdesk.local.<id>'
 
 代码签名身份的说明见 [Apple TN2206](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)。从旧 Codex Remote 版本迁移同样需要重新授予权限，原有连接设置不自动迁移。
 
-macOS 和 Windows 上开启「会话阅读」后，应用会读取当前用户的 Codex、Claude Code 和 Claude Desktop 本地 Code 会话（含 `Claude-3p` 配置）；默认关闭，读取范围和测试入口见 [会话阅读集成说明](GLASSLINE_INTEGRATION.md)。视频捕获使用窗口源，输入使用操作系统鼠标、键盘和前台焦点。真实窗口和手机验收项目见 [验证报告](CODEX_REMOTE_REPAIR_RESULTS.md)。
+macOS 和 Windows 上「会话阅读」默认开启，应用会读取当前用户的 Codex、Claude Code 和 Claude Desktop 本地 Code 会话（含 `Claude-3p` 配置）；读取范围和测试入口见 [会话阅读集成说明](GLASSLINE_INTEGRATION.md)。视频捕获使用窗口源，输入使用操作系统鼠标、键盘和前台焦点。真实窗口和手机验收项目见 [验证报告](CODEX_REMOTE_REPAIR_RESULTS.md)。

@@ -24,7 +24,7 @@ Codex 读取 `CODEX_HOME` 或 `~/.codex`。Claude Code 读取 `CLAUDE_CONFIG_DIR
 
 自定义目录需设置在启动 PalmDesk 的环境中，支持空格和非 ASCII 路径。读取仅限本地且只读，不自动搜索 WSL 主目录，跳过 Desktop SSH/WSL 索引和嵌套子 Agent 日志，不抓取云端记录；本地日志仍需存在且可读。Linux 主机不支持会话阅读。Windows 存储核对和自动化检查见 [验证记录](docs/smoke-artifacts/windows-session-reading-2026-09-24.md)；三种来源的真实 Windows 主机 + 手机完整流程仍未验收。
 
-1. 在电脑 PalmDesk 首页开启「会话阅读」，允许已连接设备读取当前用户的 Codex、Claude Code、Claude Desktop 本地 Code 和 WorkBuddy 回复及工具输出。设置默认关闭，保存在当前安装的应用数据目录。
+1. 会话阅读在 macOS 与 Windows 上默认开启（可在电脑首页设置中关闭），允许已连接设备读取当前用户的 Codex、Claude Code、Claude Desktop 本地 Code 和 WorkBuddy 回复及工具输出。设置保存在当前安装的应用数据目录。
 2. 用手机扫码或设备代码连接，默认进入「阅读」页，按项目、标题或最近消息搜索并打开会话。单独阅读不要求启动窗口捕获，也不需要屏幕录制和辅助功能权限。
 3. 阅读页支持 Markdown、复制和历史分页；命令、工具输出与差异默认折叠。页面可见时每 8 秒检查所选会话，发现变化后显示提示，点击后转到最新内容。
 4. 点击「去窗口继续」切到窗口视图，尚未选窗时选择原应用窗口。可以关联当前窗口，但发送 prompt 前仍需确认 GUI 中打开的是目标任务。阅读／窗口切换保留连接、阅读位置和未发送的输入草稿；阅读时会释放按键、阻止窗口输入并暂停视频传输。

@@ -20,6 +20,7 @@ export class DesktopSessionReader {
     private claudeDesktopDataDir?: string,
     private workbuddyHome?: string
   ) {
+    this.enabled = this.supported;
     this.ready = this.load();
   }
 
@@ -40,12 +41,18 @@ export class DesktopSessionReader {
 
   private async load() {
     try {
-      const value = JSON.parse(
-        await readFile(path.join(this.directory, 'session-reader.json'), 'utf8')
+      const content = await readFile(
+        path.join(this.directory, 'session-reader.json'),
+        'utf8'
       );
-      this.enabled = value.enabled === true && this.supported;
-    } catch {
-      this.enabled = false;
+      const value = JSON.parse(content);
+      this.enabled = value?.enabled === true && this.supported;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        this.enabled = this.supported;
+      } else {
+        this.enabled = false;
+      }
     }
   }
 

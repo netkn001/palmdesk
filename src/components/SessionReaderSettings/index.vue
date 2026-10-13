@@ -37,7 +37,7 @@ import { IPC_EVENT } from '@/event';
 import { ipcRenderer } from '@/utils';
 
 const emit = defineEmits<{ change: [enabled: boolean] }>();
-const enabled = ref(false);
+const enabled = ref(true);
 const supported = ref(true);
 const busy = ref(true);
 const error = ref('');

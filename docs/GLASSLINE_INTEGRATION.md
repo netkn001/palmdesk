@@ -10,7 +10,7 @@ PalmDesk 承接会话阅读与远程窗口操作的整合体验。`session-core/
 
 ## 已实现的流程
 
-1. 电脑首页开启「会话阅读」。默认关闭，可在 macOS 和 Windows 启用，范围是当前用户的 Codex、Claude Code 与 Claude Desktop 本地 Code 会话。读取目录遵循 `CODEX_HOME`、`CLAUDE_CONFIG_DIR` 和 `CLAUDE_USER_DATA_DIR`。所有来源按更新时间合并展示，列表、详情和助手署名标明来源。
+1. 会话阅读在 macOS 和 Windows 上默认开启（可在电脑首页设置中关闭），范围是当前用户的 Codex、Claude Code 与 Claude Desktop 本地 Code 会话。读取目录遵循 `CODEX_HOME`、`CLAUDE_CONFIG_DIR` 和 `CLAUDE_USER_DATA_DIR`。所有来源按更新时间合并展示，列表、详情和助手署名标明来源。
 2. 扫码认证后进入阅读视图，无须先授权或启动窗口捕获。没有开启读取时默认进入窗口选择。
 3. 选择会话，阅读 Markdown、复制回复、向前加载历史；工具活动及长输出默认折叠。
 4. 页面可见时每 8 秒检查所选会话，出现新内容后显示提示；点击查看更新才重新定位到最近消息。
@@ -27,7 +27,7 @@ PalmDesk 承接会话阅读与远程窗口操作的整合体验。`session-core/
 | `session-core/index.mjs` | 本地会话列表与分页读取、对外数据投影、长内容限制 |
 | `session-core/src/` | Codex、Claude Code 解析器和缓存，以及共享的有界文件读取；Codex 摘要读取头尾各最多 64 KiB，Claude 摘要以流读取并保留紧凑父链记录，最多 32 MiB |
 | `session-core/public/timeline-renderers.js` | 浏览器端 Markdown 渲染，转义原始 HTML 并限制链接协议 |
-| `electron-main/session-reader.ts` | 默认关闭的读取设置、平台检查、设置持久化、撤销正在处理的请求 |
+| `electron-main/session-reader.ts` | 支持平台上默认开启的读取设置、平台检查、设置持久化、撤销正在处理的请求 |
 | `src/utils/session-reader-channel.ts` | 独立可靠通道上的请求、分片、背压、超时、撤销和断开处理 |
 | `src/components/SessionReader/` | 手机会话列表与阅读组件 |
 | `src/components/SessionReaderSettings/` | 本机读取开关 |
@@ -90,7 +90,7 @@ pnpm build:native
 pnpm build:desktop:win # 在 Windows 主机运行
 ```
 
-测试覆盖合成 JSONL 的分页、追加与未完整写入的尾行、跨轮次重复 prompt、超长输出、32 MiB 文件上限（含读取中增长）、Markdown 截断标记与搜索，以及默认关闭、启用持久化、撤销、分片完整性、背压、请求排队和断开。Claude 扩展另外覆盖混合来源排序、同 UUID 路由、重命名、父链、子 Agent 排除、工具结果配对、缓存失效、损坏日志恢复和主进程读取开关。
+测试覆盖合成 JSONL 的分页、追加与未完整写入的尾行、跨轮次重复 prompt、超长输出、32 MiB 文件上限（含读取中增长）、Markdown 截断标记与搜索，以及支持平台上默认开启、关闭持久化、撤销、分片完整性、背压、请求排队和断开。Claude 扩展另外覆盖混合来源排序、同 UUID 路由、重命名、父链、子 Agent 排除、工具结果配对、缓存失效、损坏日志恢复和主进程读取开关。
 
 Desktop 扩展覆盖全局/专属/短目录布局、共享日志去重及详情一致性、普通/第三方配置目录、只改索引的重命名、分页与追加、索引及日志大小上限、缺失日志、损坏索引恢复、ID 不匹配与路径隔离，以及同一个主进程读取开关的授权和撤销。
 

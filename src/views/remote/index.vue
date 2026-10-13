@@ -691,7 +691,7 @@ const listingPeers = new Set<string>();
 const readerHosts = new Map<RTCDataChannel, ReaderHost>();
 const imageHosts = new Map<RTCDataChannel, ImageTransferHost>();
 let imagePasteSession = '';
-let readerEnabled = false;
+let readerEnabled = true;
 
 function bindImages(peer: WebRTCClass) {
   const channel = peer.imageChannel;

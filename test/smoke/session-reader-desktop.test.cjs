@@ -7,7 +7,7 @@ const load = require('./load-source.cjs');
 
 for (const platform of ['darwin', 'win32']) {
 for (const method of ['list', 'read']) {
-test(`${platform}: desktop reader persists opt-in and revokes in-flight ${method}`, async (t) => {
+test(`${platform}: desktop reader is enabled by default, persists configuration and revokes in-flight ${method}`, async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'palmdesk-reader-settings-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   let unblock;
@@ -19,9 +19,7 @@ test(`${platform}: desktop reader persists opt-in and revokes in-flight ${method
     }) },
   });
   const reader = new DesktopSessionReader(directory, platform);
-  assert.deepEqual(await reader.request({ method: 'status' }), { enabled: false, supported: true });
-  await assert.rejects(reader.request({ method: 'list' }), /开启/);
-  await reader.configure(true);
+  assert.deepEqual(await reader.request({ method: 'status' }), { enabled: true, supported: true });
   assert.equal((await new DesktopSessionReader(directory, platform).settings()).enabled, true);
   await assert.rejects(reader.request({ method: 'follow-up', prompt: 'execute' }), /不支持/);
   const pending = reader.request({ method });
@@ -68,8 +66,6 @@ test(`${platform}: desktop requests read Claude transcripts through the same opt
   });
   const reader = new DesktopSessionReader(directory, platform, path.join(directory, 'no-codex'), claudeConfigDir, '');
   const id = 'claude-code:session-file:33333333-3333-4333-8333-333333333333';
-  await assert.rejects(reader.request({ method: 'read', id }), /开启/);
-  await reader.configure(true);
   const list = await reader.request({ method: 'list' });
   assert.equal(list.sessions.length, 1);
   assert.equal(list.sessions[0].providerId, 'claude-code');
@@ -97,8 +93,6 @@ test(`${platform}: desktop requests discover Claude Desktop Code records and rev
   });
   const reader = new DesktopSessionReader(directory, platform, path.join(directory, 'no-codex'), path.join(directory, 'no-cli'), claudeDesktopDataDir);
   const id = 'claude-code:session-file:33333333-3333-4333-8333-333333333333';
-  await assert.rejects(reader.request({ method: 'read', id }), /开启/);
-  await reader.configure(true);
   const list = await reader.request({ method: 'list' });
   assert.equal(list.total, 1);
   assert.equal(list.sessions[0].source, 'claude-desktop');
