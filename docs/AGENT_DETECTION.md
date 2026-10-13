@@ -30,6 +30,7 @@ PalmDesk 在前端与桌面端共用一套特征白名单：
 | **ChatGPT** | `chatgpt` | `com.openai.chat` | `chatgpt.exe` |
 | **Kimi** | `kimi` | `com.moonshot.kimichat` | `kimi.exe`, `kimi desktop.exe`, `kimi work.exe`, `kimi-work.exe` |
 | **ZCode** | `zcode` | `dev.zcode.app` | `zcode.exe` |
+| **WorkBuddy** | `workbuddy` | `com.tencent.workbuddy`, `com.tencent.workbuddy.mac`, `com.tencent.workbuddy.app`, `ai.workbuddy.desktop` | `workbuddyai.exe`, `workbuddy.exe` |
 
 ---
 
@@ -114,6 +115,15 @@ flowchart TD
   - **macOS**：扫描 `~/Library/Application Support/Claude` 与 `Claude-3p`；
   - **Windows**：扫描 `%APPDATA%\Claude`、`%LOCALAPPDATA%\Claude-3p` 以及 MSIX 应用包缓存目录 `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache`；可通过 `CLAUDE_USER_DATA_DIR` 手动指定。
 - **内容识别**：严格只过滤本地 Code 入口的专属会话日志，对共享日志自动去重，不读取网页版 Chat 和云端记录。
+
+### 3.4 WorkBuddy 会话检测
+- **默认目录**：检查环境变量 `WORKBUDDY_HOME` 或 `WORKBUDDY_DATA_DIR`；缺省时 macOS/Linux 使用 `~/.workbuddy-ai`，Windows 使用 `%USERPROFILE%\.workbuddy-ai`。
+- **内容识别**：
+  - 流式扫描 `projects/*/*.jsonl` 会话；
+  - 智能过滤每轮对话中注入的 `<system-reminder>` 等系统环境上下文，精准提取 `<user_query>` 用户真实输入；
+  - 优先提取 `ai-title`（AI 自动归纳的简短标题），其次回退至干净的用户提问；
+  - 结构化渲染思考过程（`thinking` 折叠抽屉）、终端命令（`Bash` 映射为 `command`）与复杂工具调用（`AskUserQuestion`、`WebSearch`、`WebFetch`、`Edit`、`Write`、`Read` 等）；
+  - 结合 `sessions/*.json` 活跃进程心跳感知实例运行状态，支持 `watchFile` 亚秒级流式增量推流。
 
 ---
 

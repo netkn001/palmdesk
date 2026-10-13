@@ -114,3 +114,40 @@ function Get-AppxPackage {
     }
   }
 );
+
+test(
+  'real Windows PowerShell discovers WorkBuddy through Classes Applications registry',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const directory = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), 'palmdesk-workbuddy-'))
+    );
+    const executable = path.join(directory, 'WorkBuddyAI.exe');
+    try {
+      await writeFile(executable, 'fixture only: never executed');
+      const literal = executable.replace(/'/g, "''");
+      const fixture = `
+$script:fixtureExecutable = '${literal}'
+function Get-Item {
+  [CmdletBinding()] param([string]$LiteralPath)
+  if ($LiteralPath -ieq 'HKCU:\\Software\\Classes\\Applications\\workbuddyai.exe\\shell\\open\\command') {
+    $entry = New-Object PSObject
+    $entry | Add-Member ScriptMethod GetValue { param($name) return '"' + $script:fixtureExecutable + '" "%1"' }
+    return $entry
+  }
+}
+function Get-AppxPackage {
+  [CmdletBinding()] param()
+  throw 'AppX unavailable in fixture'
+}
+`;
+      const targets = catalog(fixture);
+      assert.deepEqual(targets, [
+        { id: 'workbuddy', executable, appId: undefined },
+      ]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+);
+

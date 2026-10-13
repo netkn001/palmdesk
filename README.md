@@ -4,22 +4,23 @@ English | [简体中文](README.zh-CN.md)
 
 AI-native remote control for desktop apps: read local AI sessions and control one macOS or Windows window from your phone for agent-ready workflows.
 
-PalmDesk is maintained by [Abreto](https://github.com/Abreto) and built on the open-source edition of [BilldDesk](https://github.com/galaxy-s10/billd-desk). Its AI-native design centers on how people use AI agents: discover agent applications, read supported local sessions, and continue working in the original application window. From a phone browser, interact with Codex, ChatGPT, Claude, Kimi, ZCode, or a terminal on macOS or Windows. A desktop browser can also act as the controller.
+PalmDesk is maintained by [Abreto](https://github.com/Abreto) and built on the open-source edition of [BilldDesk](https://github.com/galaxy-s10/billd-desk). Its AI-native design centers on how people use AI agents: discover agent applications, read supported local sessions, and continue working in the original application window. From a phone browser, interact with Codex, ChatGPT, Claude, Kimi, ZCode, WorkBuddy, or a terminal on macOS or Windows. A desktop browser can also act as the controller.
 
 **Status: experimental preview, with no stable release yet.** Packaged desktop builds connect to the official backend at [https://palmdesk-hk-test.ziniaocloud.com](https://palmdesk-hk-test.ziniaocloud.com) by default. After connecting, the controller opens session reading if enabled on the host; otherwise it opens the Agent directory. Window capture starts only after you select a window. Automatically reopening the last selected window is planned. Historical dependency audit results and release prerequisites are recorded in the [open-source readiness notes](docs/OPEN_SOURCE_READINESS.md).
 
 ## Session Reading Preview
 
-PalmDesk now embeds the session reader migrated from Glassline; no separate Glassline deployment is needed. It supports **the current user's local Codex, Claude Code and Claude Desktop Code sessions on macOS and Windows**, listed together by last update with a source label.
+PalmDesk now embeds the session reader migrated from Glassline; no separate Glassline deployment is needed. It supports **the current user's local Codex, Claude Code, Claude Desktop Code, and WorkBuddy sessions on macOS and Windows**, listed together by last update with a source label.
 
 | Local source | macOS host | Windows host |
 | --- | --- | --- |
 | Codex | Supported | Supported (native Windows logs) |
 | Claude Code | Supported | Supported (native Windows logs) |
 | Claude Desktop · Code | Supported | Supported (native local Code logs) |
+| WorkBuddy | Supported | Supported (native Windows logs) |
 | Desktop Chat/Cowork, cloud/SSH/WSL retrieval | Unsupported | Unsupported |
 
-Codex reads from `CODEX_HOME` or `~/.codex`. Claude Code reads `projects/*/*.jsonl` under `CLAUDE_CONFIG_DIR` or `~/.claude`, including renamed sessions, text replies and tool results. On Windows, `~` is the current user's home (normally `%USERPROFILE%`). Claude Desktop uses `~/Library/Application Support/Claude` and `Claude-3p` on macOS; on Windows it checks `%APPDATA%\Claude`, `%LOCALAPPDATA%\Claude-3p`, legacy `%APPDATA%\Claude-3p`, and their packaged-app locations under `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache`. `CLAUDE_USER_DATA_DIR` selects a single custom Desktop directory. This covers global and per-session transcripts, preserves Desktop titles and deduplicates shared logs.
+Codex reads from `CODEX_HOME` or `~/.codex`. Claude Code reads `projects/*/*.jsonl` under `CLAUDE_CONFIG_DIR` or `~/.claude`, including renamed sessions, text replies and tool results. WorkBuddy reads `sessions/*.jsonl` under `WORKBUDDY_HOME`, `WORKBUDDY_DATA_DIR`, or `~/.workbuddy-ai`, with real-time heartbeat status from running processes. On Windows, `~` is the current user's home (normally `%USERPROFILE%`). Claude Desktop uses `~/Library/Application Support/Claude` and `Claude-3p` on macOS; on Windows it checks `%APPDATA%\Claude`, `%LOCALAPPDATA%\Claude-3p`, legacy `%APPDATA%\Claude-3p`, and their packaged-app locations under `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache`. `CLAUDE_USER_DATA_DIR` selects a single custom Desktop directory. This covers global and per-session transcripts, preserves Desktop titles and deduplicates shared logs.
 
 Set custom directories in the environment that launches PalmDesk; spaces and non-ASCII names are supported. Reading stays local and read-only. WSL homes are not automatically searched, Desktop SSH/WSL indexes and nested subagent transcripts are excluded, and no cloud logs are fetched. A readable local transcript must exist. Linux hosts do not support session reading. Windows storage and automated checks are recorded in the [validation notes](docs/smoke-artifacts/windows-session-reading-2026-09-24.md); a physical Windows host + phone run for all three sources is still unvalidated.
 
@@ -37,7 +38,7 @@ Reading is disabled by default and enabled per desktop installation. Disabling i
 - Connect from a mobile page with device history, portrait and landscape layouts, and quality and frame-rate controls.
 - Connect using a device code and password, or scan the desktop's QR code with a camera or an image. Connection links authenticate automatically and open reading when enabled, or the Agent directory otherwise.
 - Browse application windows across macOS Spaces, search by application name or window title, view thumbnails, and refresh the list. Capture starts only after you select a window.
-- Use the Window tab's Agent directory to discover open Codex, Claude, ChatGPT, Kimi, and ZCode applications. A single window opens directly; multiple windows expand for selection. Running applications without an available window remain listed.
+- Use the Window tab's Agent directory to discover open Codex, Claude, ChatGPT, Kimi, ZCode, and WorkBuddy applications. A single window opens directly; multiple windows expand for selection. Running applications without an available window remain listed.
 - Choose **打开 Agent** (Open Agent) to launch an installed, supported application on the connected computer. After launch, one available window opens directly; multiple windows remain a choice. Running apps without windows can be reopened with an explicit retry.
 - Pin agents and retain recently used agents per device. Other applications remain accessible, and terminal windows can be manually associated with an agent. Manual associations survive refresh within the current connection and must be recreated after reconnecting.
 - Agent discovery uses macOS bundle IDs or Windows executable identities. "Open" describes the application, not task execution. The separate Read tab shows supported local sessions, project paths and states inferred from logs; it does not identify or switch the active task in the GUI.

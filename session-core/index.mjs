@@ -3,13 +3,25 @@ import { createHash } from 'node:crypto';
 
 import { createCodexProvider } from './src/providers/codex.mjs';
 import { createClaudeCodeProvider } from './src/providers/claude-code.mjs';
+import { createWorkBuddyProvider } from './src/providers/workbuddy.mjs';
 
 const sessionIdPattern =
-  /^(codex|claude-code):session-file:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  /^(codex|claude-code|workbuddy):session-file:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const textLimit = 16384;
 
 export function createSessionReader(options = {}) {
   // File-backed reads work without attaching to, resuming or executing an agent.
+  const hasCustomOtherHomes =
+    options.codexHome !== undefined ||
+    options.claudeConfigDir !== undefined ||
+    options.claudeDesktopDataDir !== undefined;
+  const workbuddyHome =
+    options.workbuddyHome !== undefined
+      ? options.workbuddyHome
+      : hasCustomOtherHomes
+        ? ''
+        : undefined;
+
   const providers = options.providers ?? [
     createCodexProvider({
       codexHome: options.codexHome,
@@ -19,6 +31,9 @@ export function createSessionReader(options = {}) {
       claudeConfigDir: options.claudeConfigDir,
       claudeDesktopDataDir: options.claudeDesktopDataDir,
       listAgentProcesses: () => Promise.resolve([]),
+    }),
+    createWorkBuddyProvider({
+      workbuddyHome,
     }),
   ];
   const providerById = new Map(providers.map((provider) => [provider.id, provider]));
@@ -89,7 +104,7 @@ export function createSessionReader(options = {}) {
       let disposed = false;
       const listener = async (curr, prev) => {
         if (disposed) return;
-        if (curr.mtimeMs !== prev.mtimeMs && curr.size > 0) {
+        if ((curr.mtimeMs !== prev.mtimeMs || curr.size !== prev.size) && curr.size > 0) {
           try {
             const page = await readerInstance.read(id, undefined, {
               includeThinking: true,
@@ -127,6 +142,7 @@ function summary(session) {
     lastUpdatedAt: clip(session.lastUpdatedAt, 40),
     recentMessage: clip(session.recentMessage, 300),
     quality: session.quality || 'partial',
+    status: session.status || 'idle',
     turnState: session.turnState || 'unknown',
     statusDetail: session.statusDetail ? clip(session.statusDetail, 200) : undefined,
   };

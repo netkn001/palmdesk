@@ -661,6 +661,7 @@ const sessionLabel = (session?: ReaderSession) =>
     codex: 'Codex',
     'claude-code': 'Claude Code',
     'claude-desktop': 'Claude Desktop · Code',
+    workbuddy: 'WorkBuddy',
   })[session?.source || session?.providerId || ''] || '助手';
 
 const roleLabel = (role?: string) =>
@@ -741,6 +742,7 @@ const availableAgents = computed<AgentCategory[]>(() => {
     'claude-code': { label: 'Claude Code', icon: '🤖' },
     codex: { label: 'Codex', icon: '⚡' },
     'claude-desktop': { label: 'Claude Desktop', icon: '💻' },
+    workbuddy: { label: 'WorkBuddy', icon: '💼' },
   };
 
   for (const [key, meta] of Object.entries(defs)) {
@@ -1123,15 +1125,53 @@ async function poll() {
     !props.active ||
     !props.client ||
     document.hidden ||
-    !selected.value ||
     busy.value ||
-    hasUpdate.value ||
     error.value
   )
     return;
+
+  if (!selected.value) {
+    if (!polling.value) {
+      polling.value = true;
+      try {
+        await loadList();
+      } finally {
+        polling.value = false;
+      }
+    }
+    return;
+  }
+
+  if (hasUpdate.value) return;
+
   polling.value = true;
   await run<ReaderPage>({ method: 'read', id: selected.value.id }, (page) => {
-    hasUpdate.value = signature(page) !== latestSignature;
+    const isNew = signature(page) !== latestSignature;
+    if (isNew) {
+      if (!userScrolledUp.value) {
+        selected.value = page.session;
+        const pageItemMap = new Map(page.items.map((i) => [i.id, i]));
+        const existingIds = new Set(items.value.map((i) => i.id));
+        items.value = items.value.map((item) => pageItemMap.get(item.id) || item);
+        const newItems = page.items.filter((i) => !existingIds.has(i.id));
+        if (newItems.length > 0) {
+          items.value = [...items.value, ...newItems];
+        }
+        latestSignature = signature(page);
+        hasUpdate.value = false;
+        emit('select', page.session);
+        nextTick(() => {
+          if (!userScrolledUp.value && scrollArea.value) {
+            scrollArea.value.scrollTo({
+              top: scrollArea.value.scrollHeight,
+              behavior: 'smooth',
+            });
+          }
+        });
+      } else {
+        hasUpdate.value = true;
+      }
+    }
   });
   polling.value = false;
 }
@@ -1151,10 +1191,10 @@ watch(
   }
 );
 
-// Fallback background liveness check every 30 seconds
+// Fallback background liveness check every 5 seconds
 const pollTimer = setInterval(() => {
   void poll();
-}, 30000);
+}, 5000);
 
 onUnmounted(() => {
   generation += 1;
@@ -1351,6 +1391,11 @@ h2 {
   border-color: #10b981;
   color: #6ee7b7;
 }
+.filter-chip.agent-chip.agent-workbuddy.active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
 
 /* 列表滚动容器 */
 .reader-scroll {
@@ -1539,6 +1584,11 @@ h2 {
   background: rgba(16, 185, 129, 0.1);
   color: #34d399;
   border-color: rgba(16, 185, 129, 0.25);
+}
+.session-source-badge.agent-workbuddy {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
 /* 重置筛选按钮 */

@@ -4,26 +4,27 @@
 
 面向 AI agent 工作流优化的 AI-native 远程控制：在手机浏览器中阅读本地 AI 会话，并操作 macOS 或 Windows 上的单个应用窗口。
 
-PalmDesk 由 [Abreto](https://github.com/Abreto) 维护，基于 [BilldDesk](https://github.com/galaxy-s10/billd-desk) 开源版开发。产品以 agent-ready workflows 为目标，围绕用户使用 AI agent 的流程做专门优化：发现 Agent 应用、阅读支持的本地会话，再回到原应用窗口继续操作。从手机浏览器即可与 macOS 或 Windows 上的 Codex、ChatGPT、Claude、Kimi、ZCode 或终端交互；电脑浏览器也可作为控制端。
+PalmDesk 由 [Abreto](https://github.com/Abreto) 维护，基于 [BilldDesk](https://github.com/galaxy-s10/billd-desk) 开源版开发。产品以 agent-ready workflows 为目标，围绕用户使用 AI agent 的流程做专门优化：发现 Agent 应用、阅读支持的本地会话，再回到原应用窗口继续操作。从手机浏览器即可与 macOS 或 Windows 上的 Codex、ChatGPT、Claude、Kimi、ZCode、WorkBuddy 或终端交互；电脑浏览器也可作为控制端。
 
 **状态：实验性预览版，尚未发布稳定版。** 打包后的桌面客户端默认连接官方后端 [https://palmdesk-hk-test.ziniaocloud.com](https://palmdesk-hk-test.ziniaocloud.com)。连接设备后，电脑已开启会话阅读时默认进入阅读页，否则进入 Agent 目录；选择窗口后才开始捕获。“打开即恢复到上次窗口”属于后续计划。历史依赖审计结果和发布前待办见 [开源准备记录](docs/OPEN_SOURCE_READINESS.md)。
 
 ## 会话阅读（预览）
 
-PalmDesk 现已内置从 Glassline 迁入的会话读取模块，无须单独部署 Glassline。支持 **macOS 和 Windows 上当前用户的 Codex、Claude Code 和 Claude Desktop 本地 Code 会话**，按更新时间混合展示并标明来源。
+PalmDesk 现已内置从 Glassline 迁入的会话读取模块，无须单独部署 Glassline。支持 **macOS 和 Windows 上当前用户的 Codex、Claude Code、Claude Desktop 本地 Code 会话以及 WorkBuddy 本地会话**，按更新时间混合展示并标明来源。
 
 | 本地来源 | macOS 主机 | Windows 主机 |
 | --- | --- | --- |
 | Codex | 支持 | 支持原生 Windows 日志 |
 | Claude Code | 支持 | 支持原生 Windows 日志 |
 | Claude Desktop · Code | 支持 | 支持原生本地 Code 日志 |
+| WorkBuddy | 支持 | 支持原生 Windows 日志 |
 | Desktop Chat/Cowork、云端/SSH/WSL 抓取 | 不支持 | 不支持 |
 
-Codex 读取 `CODEX_HOME` 或 `~/.codex`。Claude Code 读取 `CLAUDE_CONFIG_DIR` 或 `~/.claude` 下的 `projects/*/*.jsonl`，支持会话重命名、文字回复和工具结果。Windows 上的 `~` 是当前用户的主目录（通常为 `%USERPROFILE%`）。Claude Desktop 在 macOS 上读取 `~/Library/Application Support/Claude` 和 `Claude-3p`；在 Windows 上检查 `%APPDATA%\Claude`、`%LOCALAPPDATA%\Claude-3p`、旧版 `%APPDATA%\Claude-3p`，以及 `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache` 下对应的应用包目录。`CLAUDE_USER_DATA_DIR` 可指定唯一的自定义 Desktop 目录。兼容全局及会话专属日志，保留 Desktop 标题，并对共享日志去重。
+Codex 读取 `CODEX_HOME` 或 `~/.codex`。Claude Code 读取 `CLAUDE_CONFIG_DIR` 或 `~/.claude` 下的 `projects/*/*.jsonl`，支持会话重命名、文字回复和工具结果。WorkBuddy 读取 `WORKBUDDY_HOME`、`WORKBUDDY_DATA_DIR` 或 `~/.workbuddy-ai` 下的 `sessions/*.jsonl`，并关联运行中进程的心跳状态。Windows 上的 `~` 是当前用户的主目录（通常为 `%USERPROFILE%`）。Claude Desktop 在 macOS 上读取 `~/Library/Application Support/Claude` 和 `Claude-3p`；在 Windows 上检查 `%APPDATA%\Claude`、`%LOCALAPPDATA%\Claude-3p`、旧版 `%APPDATA%\Claude-3p`，以及 `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache` 下对应的应用包目录。`CLAUDE_USER_DATA_DIR` 可指定唯一的自定义 Desktop 目录。兼容全局及会话专属日志，保留 Desktop 标题，并对共享日志去重。
 
 自定义目录需设置在启动 PalmDesk 的环境中，支持空格和非 ASCII 路径。读取仅限本地且只读，不自动搜索 WSL 主目录，跳过 Desktop SSH/WSL 索引和嵌套子 Agent 日志，不抓取云端记录；本地日志仍需存在且可读。Linux 主机不支持会话阅读。Windows 存储核对和自动化检查见 [验证记录](docs/smoke-artifacts/windows-session-reading-2026-09-24.md)；三种来源的真实 Windows 主机 + 手机完整流程仍未验收。
 
-1. 在电脑 PalmDesk 首页开启「会话阅读」，允许已连接设备读取当前用户的 Codex、Claude Code 和 Claude Desktop 本地 Code 回复及工具输出。设置默认关闭，保存在当前安装的应用数据目录。
+1. 在电脑 PalmDesk 首页开启「会话阅读」，允许已连接设备读取当前用户的 Codex、Claude Code、Claude Desktop 本地 Code 和 WorkBuddy 回复及工具输出。设置默认关闭，保存在当前安装的应用数据目录。
 2. 用手机扫码或设备代码连接，默认进入「阅读」页，按项目、标题或最近消息搜索并打开会话。单独阅读不要求启动窗口捕获，也不需要屏幕录制和辅助功能权限。
 3. 阅读页支持 Markdown、复制和历史分页；命令、工具输出与差异默认折叠。页面可见时每 8 秒检查所选会话，发现变化后显示提示，点击后转到最新内容。
 4. 点击「去窗口继续」切到窗口视图，尚未选窗时选择原应用窗口。可以关联当前窗口，但发送 prompt 前仍需确认 GUI 中打开的是目标任务。阅读／窗口切换保留连接、阅读位置和未发送的输入草稿；阅读时会释放按键、阻止窗口输入并暂停视频传输。
@@ -42,7 +43,7 @@ Codex 读取 `CODEX_HOME` 或 `~/.codex`。Claude Code 读取 `CLAUDE_CONFIG_DIR
 - 手机连接页、设备历史、横竖屏界面、画质和帧率选择。
 - 电脑展示连接二维码，手机网页支持相机扫码和图片识码；连接链接打开后自动认证，已开启会话阅读时进入阅读页，否则进入 Agent 目录。
 - 手机端窗口列表、应用名和标题搜索、缩略图、手动刷新；选择后才开始视频捕获。
-- 「窗口」页的 Agent 目录自动识别已打开的 Codex、Claude、ChatGPT、Kimi 和 ZCode；单窗口直接进入，多窗口展开选择。应用进程已打开但没有可用窗口时仍保留入口。
+- 「窗口」页的 Agent 目录自动识别已打开的 Codex、Claude、ChatGPT、Kimi、ZCode 和 WorkBuddy；单窗口直接进入，多窗口展开选择。应用进程已打开但没有可用窗口时仍保留入口。
 - 点击「打开 Agent」可在已连接电脑上启动已安装、受支持的应用；打开后单窗口直接进入，多窗口由用户选择。应用已运行但暂无窗口时，可以明确重试打开窗口。
 - Agent 支持按设备置顶和最近使用排序；“其他应用”保留通用窗口控制，可手动把终端等窗口关联到 Agent。手动关联在本次连接内刷新后保留，重新连接后需重新关联。
 - Agent 目录使用 macOS bundle ID 或 Windows 可执行文件身份识别应用；“已打开”仅表示检测到应用，不代表任务正在执行。「阅读」页另行展示支持的本地会话、项目路径及从日志推断的状态，尚不能自动识别或切换 GUI 当前任务。

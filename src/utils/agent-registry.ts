@@ -34,6 +34,17 @@ export const AGENT_DEFINITIONS = [
     bundles: ['dev.zcode.app'],
     executables: ['zcode.exe'],
   },
+  {
+    id: 'workbuddy',
+    name: 'WorkBuddy',
+    bundles: [
+      'com.tencent.workbuddy',
+      'com.tencent.workbuddy.mac',
+      'com.tencent.workbuddy.app',
+      'ai.workbuddy.desktop',
+    ],
+    executables: ['workbuddyai.exe', 'workbuddy.exe'],
+  },
 ] as const;
 
 export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id'];

@@ -9,11 +9,13 @@ import { createSessionReader } from '../index.mjs';
 import { resolveCodexHome } from '../src/providers/codex-session-file.mjs';
 import { resolveClaudeConfigDir } from '../src/providers/claude-session-file.mjs';
 import { resolveClaudeDesktopDataDirs } from '../src/providers/claude-desktop-sessions.mjs';
+import { resolveWorkBuddyHome } from '../src/providers/workbuddy-session-file.mjs';
 
 const fixtures = fileURLToPath(new URL('fixtures/', import.meta.url));
 const codexUuid = '11111111-1111-4111-8111-111111111111';
 const claudeUuid = '33333333-3333-4333-8333-333333333333';
 const desktopUuid = '44444444-4444-4444-8444-444444444444';
+const workbuddyUuid = '55555555-5555-4555-8555-555555555555';
 const desktopId = 'local_dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const now = Date.parse('2026-09-24T00:00:00Z');
 function environment(t, values) {
@@ -38,8 +40,10 @@ async function setup(t) {
   const codexHome = path.join(directory, '用户 空间', 'Codex data');
   const claudeConfigDir = path.join(directory, '用户 空间', 'Claude CLI');
   const claudeDesktopDataDir = path.join(directory, '用户 空间', 'Claude Desktop');
+  const workbuddyHome = path.join(directory, '用户 空间', 'WorkBuddy data');
   const org = path.join(claudeDesktopDataDir, 'claude-code-sessions', 'aaaaaaaa', 'bbbbbbbb');
   const transcript = path.join(org, desktopId, '.claude', 'projects', 'C--项目-空间-PalmDesk', `${desktopUuid}.jsonl`);
+  const workbuddySessionFile = path.join(workbuddyHome, 'projects', 'C--项目-空间-PalmDesk', `${workbuddyUuid}.jsonl`);
   await cp(path.join(fixtures, 'codex-home'), codexHome, { recursive: true });
   await cp(path.join(fixtures, 'claude-config'), claudeConfigDir, { recursive: true });
   await put(path.join(org, `${desktopId}.json`), JSON.stringify({
@@ -47,12 +51,18 @@ async function setup(t) {
     title: 'Windows Desktop 标题', createdAt: now, lastActivityAt: now,
   }));
   await put(transcript, Array.from({ length: 85 }, (_, i) => message(desktopUuid, i)).join('\r\n') + '\r\n');
-  return { directory, codexHome, claudeConfigDir, claudeDesktopDataDir, transcript };
+  await put(workbuddySessionFile, [
+    JSON.stringify({ type: 'ai-title', aiTitle: 'Windows WorkBuddy 标题', timestamp: now }),
+    JSON.stringify({ type: 'message', role: 'user', content: [{ type: 'input_text', text: '<system-reminder>sys</system-reminder>\n<user_query>你好</user_query>' }], timestamp: now }),
+    JSON.stringify({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'WorkBuddy 回复' }], timestamp: now + 1 }),
+  ].join('\r\n') + '\r\n');
+  return { directory, codexHome, claudeConfigDir, claudeDesktopDataDir, workbuddyHome, transcript };
 }
 
 test('Windows default roots cover native CLI, unpackaged Desktop, packaged Desktop and third-party profiles', () => {
   assert.equal(resolveCodexHome({}), path.join(os.homedir(), '.codex'));
   assert.equal(resolveClaudeConfigDir({}), path.join(os.homedir(), '.claude'));
+  assert.equal(resolveWorkBuddyHome({}), path.join(os.homedir(), '.workbuddy-ai'));
   const roaming = 'D:\\用户 空间\\Roaming';
   const local = 'D:\\用户 空间\\Local';
   const cache = path.win32.join(local, 'Packages', 'Claude_pzs8sxrjxfjjc', 'LocalCache');
@@ -67,15 +77,23 @@ test('Windows default roots cover native CLI, unpackaged Desktop, packaged Deskt
 
 test('environment overrides with spaces and non-ASCII paths discover all sources, history and partial appends', async (t) => {
   const roots = await setup(t);
-  environment(t, { CODEX_HOME: roots.codexHome, CLAUDE_CONFIG_DIR: roots.claudeConfigDir, CLAUDE_USER_DATA_DIR: roots.claudeDesktopDataDir });
+  environment(t, {
+    CODEX_HOME: roots.codexHome,
+    CLAUDE_CONFIG_DIR: roots.claudeConfigDir,
+    CLAUDE_USER_DATA_DIR: roots.claudeDesktopDataDir,
+    WORKBUDDY_HOME: roots.workbuddyHome,
+  });
   assert.equal(resolveCodexHome(), roots.codexHome);
   assert.equal(resolveClaudeConfigDir(), roots.claudeConfigDir);
+  assert.equal(resolveWorkBuddyHome(), roots.workbuddyHome);
   assert.deepEqual(resolveClaudeDesktopDataDirs(), [roots.claudeDesktopDataDir]);
   const reader = createSessionReader();
   const list = await reader.list();
-  assert.deepEqual([...new Set(list.sessions.map((s) => s.source))].sort(), ['claude-code', 'claude-desktop', 'codex']);
+  assert.deepEqual([...new Set(list.sessions.map((s) => s.source))].sort(), ['claude-code', 'claude-desktop', 'codex', 'workbuddy']);
   assert.ok((await reader.read(`codex:session-file:${codexUuid}`)).items.length);
   assert.equal((await reader.read(`claude-code:session-file:${claudeUuid}`)).items.at(-1).text, 'Done.');
+  assert.equal((await reader.read(`workbuddy:session-file:${workbuddyUuid}`)).items.at(-1).text, 'WorkBuddy 回复');
+  assert.equal((await reader.read(`workbuddy:session-file:${workbuddyUuid}`)).session.title, 'Windows WorkBuddy 标题');
   const id = `claude-code:session-file:${desktopUuid}`;
   const latest = await reader.read(id);
   const older = await reader.read(id, latest.nextCursor);

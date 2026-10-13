@@ -17,7 +17,8 @@ export class DesktopSessionReader {
     private platform = process.platform,
     private codexHome?: string,
     private claudeConfigDir?: string,
-    private claudeDesktopDataDir?: string
+    private claudeDesktopDataDir?: string,
+    private workbuddyHome?: string
   ) {
     this.ready = this.load();
   }
@@ -94,6 +95,7 @@ export class DesktopSessionReader {
       codexHome: this.codexHome,
       claudeConfigDir: this.claudeConfigDir,
       claudeDesktopDataDir: this.claudeDesktopDataDir,
+      workbuddyHome: this.workbuddyHome,
     });
     let result: unknown;
     if (data.method === 'list') {

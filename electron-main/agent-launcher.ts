@@ -22,15 +22,27 @@ export const WINDOWS_AGENT_CATALOG_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 $result = New-Object System.Collections.Generic.List[object]
-$names = @('codex.exe','claude.exe','chatgpt.exe','kimi.exe','kimi desktop.exe','kimi work.exe','kimi-work.exe','zcode.exe')
-foreach ($root in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths')) {
+$names = @('codex.exe','claude.exe','chatgpt.exe','kimi.exe','kimi desktop.exe','kimi work.exe','kimi-work.exe','zcode.exe','workbuddyai.exe','workbuddy.exe')
+foreach ($root in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths','HKCU:\Software\Classes\Applications','HKLM:\Software\Classes\Applications')) {
   foreach ($name in $names) {
-    $key = Get-Item -LiteralPath ($root + '\' + $name) -ErrorAction SilentlyContinue
+    $path = if ($root.EndsWith('Applications')) { $root + '\' + $name + '\shell\open\command' } else { $root + '\' + $name }
+    $key = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
     if ($key) {
-      $file = [Environment]::ExpandEnvironmentVariables([string]$key.GetValue('')).Trim('"')
+      $raw = [string]$key.GetValue('')
+      $file = if ($raw.StartsWith('"')) { $raw.Substring(1).Split('"')[0] } else { $raw.Split(' ')[0] }
+      $file = [Environment]::ExpandEnvironmentVariables($file).Trim('"')
       if ($file -and (Test-Path -LiteralPath $file -PathType Leaf) -and [IO.Path]::GetFileName($file) -ieq $name) {
         $result.Add(@{ executable = $file })
       }
+    }
+  }
+}
+if ((Get-Command Get-Item -ErrorAction SilentlyContinue).CommandType -eq 'Cmdlet') {
+  $localPrograms = [Environment]::GetFolderPath('LocalApplicationData') + '\Programs'
+  foreach ($name in $names) {
+    $candidate = Join-Path $localPrograms ([IO.Path]::GetFileNameWithoutExtension($name) + '\' + $name)
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+      $result.Add(@{ executable = $candidate })
     }
   }
 }
