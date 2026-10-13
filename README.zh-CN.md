@@ -116,17 +116,18 @@ macOS 上需给当前工作区的开发应用（`PalmDesk Local <id> Dev` 或 `P
 
 ### Windows 镜像克隆主机与 `--print-link`
 
-由同一 Windows 镜像克隆出的主机原本会共用母机的设备代码和密码。在阿里云 ECS 上，PalmDesk 启动时读取 `http://100.100.100.200/latest/meta-data/instance-id`，并记录缓存凭据所属的实例。实例 ID 不一致，或凭据产生于此检查之前时，主机会丢弃旧凭据并向后端重新申请设备。约一分钟内取不到 metadata、且此前记录过实例 ID 时，不使用缓存凭据上线，并在后台继续重试。没有 metadata 服务的机器（本地开发、非云主机）保持原有凭据。
+由同一 Windows 镜像克隆出的主机原本会共用母机的设备代码和密码。在阿里云 ECS 等云主机上，PalmDesk 启动时读取 `http://100.100.100.200/latest/meta-data/instance-id` 并结合当前 Windows 用户名构成复合唯一标识（`<instanceId>_<username>`），记录缓存凭据所属的实例与用户。实例标识不一致，或凭据产生于此检查之前时，主机会丢弃旧凭据并向后端重新申请设备。约一分钟内取不到 metadata、且此前记录过实例 ID 时，不使用缓存凭据上线，并在后台继续重试。没有 metadata 服务的机器（本地开发、非云主机）保持原有凭据。
 
-Windows 主机登录成功后，按当前配置的手机网页地址把连接链接写入 `C:\ProgramData\PalmDesk\connection.json`（含 `instanceId`、`device`、`password`、`url`、`updatedAt`）。外部系统可通过云助手等方式远程执行。请按实际安装位置调整路径，`C:\app_manager\PalmDesk` 是 `scripts/windows/setup-unattended-host.ps1` 的默认目录：
+Windows 主机登录成功后，按当前配置的手机网页地址把连接链接写入当前用户的 `~/.palmdesk/connection.json`（即 `%USERPROFILE%\.palmdesk\connection.json`，含 `instanceId`、`device`、`password`、`url`、`updatedAt`）。外部系统可通过云助手等方式远程执行。请按实际安装位置调整路径，`C:\app_manager\PalmDesk` 是 `scripts/windows/setup-unattended-host.ps1` 的默认目录：
 
 ```powershell
-& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link              # 输出一行连接 URL
+& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link              # 输出当前用户的一行连接 URL
+& "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link --user=alice # 查询指定 Windows 用户的连接 URL
 & "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link --json       # 输出完整记录
 & "C:\app_manager\PalmDesk\PalmDesk.exe" --print-link --timeout=30 --output=C:\temp\link.txt
 ```
 
-`--print-link` 不打开窗口，也不影响正在运行的实例。它只输出实例 ID 与本机一致的记录，最多等待 `--timeout` 秒（默认 60）。退出码：`0` 成功，`1` 参数错误或平台不支持，`2` 链接尚未写入，`3` 记录属于其他实例，`4` 无法获取实例 ID。PalmDesk 属于 GUI 子系统程序，请通过重定向、管道或 `--output` 获取结果，交互式控制台中可能看不到输出。该文件沿用 ProgramData 默认权限，含明文密码；机器有其他用户时请自行收紧权限。macOS 主机不写此文件。
+`--print-link` 不打开窗口，也不影响正在运行的实例。它默认读取当前用户环境（或通过 `--user=<username>` 指定用户），只输出实例 ID 与本机目标用户一致的记录，最多等待 `--timeout` 秒（默认 60）。退出码：`0` 成功，`1` 参数错误或平台不支持，`2` 链接尚未写入，`3` 记录属于其他实例，`4` 无法获取实例 ID。PalmDesk 属于 GUI 子系统程序，请通过重定向、管道或 `--output` 获取结果，交互式控制台中可能看不到输出。连接文件存放于各用户私有目录（`~/.palmdesk/`），含明文密码；请注意权限保护。macOS 主机不写此文件。
 
 窗口列表和阅读内容通过已验证连接的 WebRTC DataChannel 传输，后端负责设备认证、信令和 TURN 凭据。自部署需使用 [容器说明](containers/README.md) 中与 PalmDesk 兼容的后端。窗口列表包含当前用户会话中 macOS 各桌面或 Windows 当前虚拟桌面的普通应用窗口，排除本客户端、桌面元素和整个屏幕。macOS 其他桌面、隐藏或最小化的窗口标注“未在当前桌面显示”，仍可展示缩略图。macOS 14 及以上在 Electron 缺少预览时，使用 ScreenCaptureKit 单窗口截图补齐，不激活窗口或切换桌面；系统无法提供画面时保留可选择的窗口条目。选择后主机会激活目标窗口，macOS 可按需切换桌面，最小化时只还原所选窗口。系统或应用拒绝激活、无法唯一识别窗口时会报错；只有窗口实际出现在捕获列表中才会启动视频。刷新列表不会切换桌面，窗口关闭、切离可捕获桌面或身份变化后会结束会话，不会自动选择其他窗口。
 

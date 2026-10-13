@@ -1,9 +1,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
   PRINT_LINK_EXIT,
+  composeHostInstanceId,
   formatConnectionRecord,
   normalizeInstanceId,
   parsePrintLinkArgs,
@@ -20,10 +22,37 @@ export function hostLinkSupported(platform: NodeJS.Platform) {
   return platform === 'win32';
 }
 
-export function connectionFilePath(env: NodeJS.ProcessEnv = process.env) {
+export function currentUsername(env: NodeJS.ProcessEnv = process.env): string {
+  if (env.USERNAME) return env.USERNAME;
+  if (env.USER) return env.USER;
+  try {
+    return os.userInfo().username;
+  } catch {
+    return '';
+  }
+}
+
+export function connectionFilePath(
+  env: NodeJS.ProcessEnv = process.env,
+  user?: string,
+  platform: NodeJS.Platform = process.platform
+) {
   if (env.PALMDESK_CONNECTION_FILE) return env.PALMDESK_CONNECTION_FILE;
-  const root = env.ProgramData || env.PROGRAMDATA || 'C:\\ProgramData';
-  return path.join(root, 'PalmDesk', 'connection.json');
+  if (platform === 'win32') {
+    if (user) {
+      const systemDrive = env.SystemDrive || 'C:';
+      return path.join(
+        systemDrive,
+        'Users',
+        user,
+        '.palmdesk',
+        'connection.json'
+      );
+    }
+    const home = env.USERPROFILE || os.homedir();
+    return path.join(home, '.palmdesk', 'connection.json');
+  }
+  return path.join(os.homedir(), '.palmdesk', 'connection.json');
 }
 
 export function requestInstanceId(
@@ -57,11 +86,17 @@ const sleep = (ms: number) =>
   });
 
 /** Retries until the metadata service answers or the deadline passes. */
-export async function resolveInstanceId(waitMs: number) {
+export async function resolveInstanceId(
+  waitMs: number,
+  username = currentUsername(),
+  platform: NodeJS.Platform = process.platform
+) {
   const deadline = Date.now() + Math.max(0, waitMs);
   for (;;) {
     const id = await requestInstanceId();
-    if (id || Date.now() >= deadline) return id;
+    if (id || Date.now() >= deadline) {
+      return composeHostInstanceId(id, username, platform);
+    }
     await sleep(Math.min(2000, Math.max(0, deadline - Date.now())));
   }
 }
@@ -100,7 +135,7 @@ type PrintLinkIo = Record<
   Pick<NodeJS.WritableStream, 'write'>
 >;
 
-/** `PalmDesk.exe --print-link [--json] [--timeout=秒] [--output=文件]` */
+/** `PalmDesk.exe --print-link [--json] [--timeout=秒] [--output=文件] [--user=用户名]` */
 export async function runPrintLink(
   argv: readonly string[],
   platform: NodeJS.Platform,
@@ -117,15 +152,21 @@ export async function runPrintLink(
     await emit(io.stderr, '--print-link 仅支持 Windows 主机\n');
     return PRINT_LINK_EXIT.failed;
   }
+  const targetUser = options.user || currentUsername();
+  const filePath = connectionFilePath(process.env, options.user, platform);
   const deadline = Date.now() + options.timeoutMs;
-  const instanceId = await resolveInstanceId(options.timeoutMs);
+  const instanceId = await resolveInstanceId(
+    options.timeoutMs,
+    targetUser,
+    platform
+  );
   if (!instanceId) {
     await emit(io.stderr, '无法获取云实例 instance-id\n');
     return PRINT_LINK_EXIT.noIdentity;
   }
   let mismatched = false;
   for (;;) {
-    const record = loadConnectionRecord();
+    const record = loadConnectionRecord(filePath);
     if (record?.instanceId === instanceId) {
       const text = formatConnectionRecord(record, options.json);
       if (options.output) {

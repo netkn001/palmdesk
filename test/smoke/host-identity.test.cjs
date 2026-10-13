@@ -8,12 +8,14 @@ const { test } = require('node:test');
 const loadSource = require('./load-source.cjs');
 
 const {
+  composeHostInstanceId,
   decideCredentialAction,
   normalizeInstanceId,
   parsePrintLinkArgs,
   readConnectionRecord,
   formatConnectionRecord,
   isPrintLinkInvocation,
+  sanitizeUsername,
   PRINT_LINK_EXIT,
 } = loadSource('src/utils/host-identity.ts');
 
@@ -63,6 +65,7 @@ test('print-link arguments', () => {
     json: false,
     timeoutMs: 60000,
     output: '',
+    user: '',
   });
   assert.deepEqual(
     parsePrintLinkArgs([
@@ -70,12 +73,43 @@ test('print-link arguments', () => {
       '--json',
       '--timeout=5',
       '--output=C:\\a.txt',
+      '--user=alice',
     ]),
-    { json: true, timeoutMs: 5000, output: 'C:\\a.txt' }
+    { json: true, timeoutMs: 5000, output: 'C:\\a.txt', user: 'alice' }
   );
   assert.throws(() => parsePrintLinkArgs(['--timeout=abc']));
   assert.throws(() => parsePrintLinkArgs(['--timeout=-1']));
   assert.throws(() => parsePrintLinkArgs(['--output=']));
+  assert.throws(() => parsePrintLinkArgs(['--user=']));
+});
+
+test('username sanitization and composite host instance ID on Windows', () => {
+  assert.equal(sanitizeUsername('Administrator'), 'Administrator');
+  assert.equal(sanitizeUsername('alice.bob-01_test'), 'alice.bob-01_test');
+  const sanitizedWithSpace = sanitizeUsername('John Doe');
+  assert.ok(/^John_Doe_[0-9a-f]{6}$/.test(sanitizedWithSpace));
+  const sanitizedChinese = sanitizeUsername('测试用户');
+  assert.ok(/^u_.*_[0-9a-f]{6}$/.test(sanitizedChinese));
+  assert.equal(sanitizeUsername(''), '');
+  assert.equal(sanitizeUsername(null), '');
+
+  // Windows: combines cloud instance ID with username
+  assert.equal(
+    composeHostInstanceId('i-bp1abc', 'Administrator', 'win32'),
+    'i-bp1abc_Administrator'
+  );
+  // Windows: non-cloud (empty instanceId) remains empty
+  assert.equal(composeHostInstanceId('', 'Administrator', 'win32'), '');
+  assert.equal(composeHostInstanceId('   ', 'Administrator', 'win32'), '');
+  // Non-Windows: keeps raw instanceId without username
+  assert.equal(
+    composeHostInstanceId('i-bp1abc', 'Administrator', 'darwin'),
+    'i-bp1abc'
+  );
+  assert.equal(
+    composeHostInstanceId('i-bp1abc', 'Administrator', 'linux'),
+    'i-bp1abc'
+  );
 });
 
 test('connection records are validated and formatted', () => {
@@ -141,7 +175,12 @@ const io = () => ({ stdout: sink(), stderr: sink() });
 
 test('print-link prints the published link for this instance', async () => {
   await withMetadata('i-bp1abc', async (hostLink, dir) => {
-    hostLink.writeConnectionRecord(record());
+    const instanceId = composeHostInstanceId(
+      'i-bp1abc',
+      hostLink.currentUsername(),
+      'win32'
+    );
+    hostLink.writeConnectionRecord(record({ instanceId }));
     const out = io();
     let code = await hostLink.runPrintLink(
       ['--print-link', '--timeout=1'],
@@ -158,15 +197,23 @@ test('print-link prints the published link for this instance', async () => {
       'win32',
       json
     );
-    assert.deepEqual(JSON.parse(json.stdout.text()), record());
+    assert.deepEqual(JSON.parse(json.stdout.text()), record({ instanceId }));
     assert.equal(code, PRINT_LINK_EXIT.ok);
-    assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')), record());
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(output, 'utf8')),
+      record({ instanceId })
+    );
   });
 });
 
 test('print-link refuses records copied from another instance', async () => {
   await withMetadata('i-clone', async (hostLink) => {
-    hostLink.writeConnectionRecord(record());
+    const instanceId = composeHostInstanceId(
+      'i-template',
+      hostLink.currentUsername(),
+      'win32'
+    );
+    hostLink.writeConnectionRecord(record({ instanceId }));
     const code = await hostLink.runPrintLink(
       ['--print-link', '--timeout=0.2'],
       'win32',
@@ -174,6 +221,53 @@ test('print-link refuses records copied from another instance', async () => {
     );
     assert.equal(code, PRINT_LINK_EXIT.mismatch);
   });
+});
+
+test('print-link supports --user=<username> to target another user', async () => {
+  await withMetadata('i-bp1abc', async (hostLink) => {
+    const targetUser = 'charlie';
+    const instanceId = composeHostInstanceId(
+      'i-bp1abc',
+      targetUser,
+      'win32'
+    );
+    const targetRecord = record({
+      instanceId,
+      url: 'https://remote.example.com/#/remote?connect=1&device=charlie1&password=secret99',
+    });
+    // Write record to the overridden PALMDESK_CONNECTION_FILE
+    hostLink.writeConnectionRecord(targetRecord);
+
+    const out = io();
+    const code = await hostLink.runPrintLink(
+      ['--print-link', `--user=${targetUser}`, '--timeout=1'],
+      'win32',
+      out
+    );
+    assert.equal(code, PRINT_LINK_EXIT.ok);
+    assert.equal(out.stdout.text(), `${targetRecord.url}\n`);
+  });
+});
+
+test('connectionFilePath handles user directory on Windows', () => {
+  const hostLink = loadSource('electron-main/host-link.ts');
+  const winEnv = { SystemDrive: 'D:', USERPROFILE: 'D:\\Users\\alice' };
+  assert.equal(
+    hostLink.connectionFilePath(winEnv, undefined, 'win32'),
+    path.join('D:\\Users\\alice', '.palmdesk', 'connection.json')
+  );
+  assert.equal(
+    hostLink.connectionFilePath(winEnv, 'bob', 'win32'),
+    path.join('D:\\Users', 'bob', '.palmdesk', 'connection.json')
+  );
+  assert.equal(
+    hostLink.connectionFilePath(
+      { PALMDESK_CONNECTION_FILE: 'C:\\custom\\conn.json' },
+      undefined,
+      'win32'
+    ),
+    'C:\\custom\\conn.json'
+  );
 });
 
 test('print-link reports missing records and identity', async () => {
