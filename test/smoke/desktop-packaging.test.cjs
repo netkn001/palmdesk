@@ -381,10 +381,22 @@ test('installer builds reject a mismatched host before invoking build tools', as
 
 test('packaging includes the Windows helper as a resource without elevation', () => {
   const config = require('../../electron-builder.cjs');
+  assert.deepEqual(config.win.extraFiles, [
+    {
+      from: 'native-bin/win-redist',
+      to: '.',
+      filter: ['*.dll'],
+    },
+  ]);
   assert.deepEqual(config.win.extraResources, [
     {
       from: 'native-bin/palmdesk-window.exe',
       to: 'native/palmdesk-window.exe',
+    },
+    {
+      from: 'native-bin/win-redist',
+      to: 'native',
+      filter: ['*.dll'],
     },
   ]);
   assert.equal(config.win.requestedExecutionLevel, 'asInvoker');

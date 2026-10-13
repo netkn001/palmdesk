@@ -53,10 +53,22 @@ module.exports = {
     target: [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
   win: {
+    extraFiles: [
+      {
+        from: 'native-bin/win-redist',
+        to: '.',
+        filter: ['*.dll'],
+      },
+    ],
     extraResources: [
       {
         from: 'native-bin/palmdesk-window.exe',
         to: 'native/palmdesk-window.exe',
+      },
+      {
+        from: 'native-bin/win-redist',
+        to: 'native',
+        filter: ['*.dll'],
       },
     ],
     artifactName: '${productName}-${version}-windows-${arch}.${ext}',
