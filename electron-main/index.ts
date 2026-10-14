@@ -47,6 +47,7 @@ import {
   matchDisplaySources,
   nativeHelperPath,
   enableWindowsCapture,
+  disableBackgroundThrottling,
   discoverAgents,
 } from './native-window';
 import { DesktopSessionReader } from './session-reader';
@@ -65,6 +66,7 @@ const windowsCaptureEnabled =
 const printLinkMode = isPrintLinkInvocation(process.argv);
 
 if (!printLinkMode) {
+  disableBackgroundThrottling(app.commandLine);
   // 该版本electron所对应的node版本
   console.log('process.version', process.version);
   // electron版本
@@ -308,6 +310,7 @@ async function createWindow({
     y: yy,
     icon: path.join(__dirname, '../public/favicon.ico'),
     webPreferences: {
+      backgroundThrottling: false,
       devTools: true,
       // nodeIntegration: true, // 在网页中集成Node
       preload: path.join(__dirname, 'preload.mjs'),
@@ -383,6 +386,7 @@ function main() {
     // 隐藏菜单栏
     autoHideMenuBar: true,
     webPreferences: {
+      backgroundThrottling: false,
       // devTools: true,
       // nodeIntegration: true, // 在网页中集成Node
       preload: path.join(__dirname, 'preload.mjs'),

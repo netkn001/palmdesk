@@ -96,3 +96,32 @@ test('ending or disconnecting a session invalidates both access tokens immediate
     );
   }
 });
+
+test('device presence stays alive on Engine.IO heartbeats, self-heals via updateUser, and cleans up on disconnect', async () => {
+  const { socket, redis, host } = await fixture();
+  redis.clock += 50_000;
+  await host.receiveConn('heartbeat');
+  redis.clock += 50_000;
+  assert.equal(JSON.parse(await redis.get('desk:target01')).value.socket_id, 'host-socket');
+
+  const unjoined = await socket('unjoined-socket');
+  await unjoined.receive('billdDeskUpdateUser', {
+    deskUserUuid: 'target02',
+    deskUserPassword: 'wrong',
+    roomId: 'target02',
+  });
+  assert.equal(await redis.get('desk:target02'), null);
+  await unjoined.receive('billdDeskUpdateUser', {
+    deskUserUuid: 'target02',
+    deskUserPassword: 'pw-target02',
+    roomId: 'target02',
+  });
+  assert.equal(JSON.parse(await redis.get('desk:target02')).value.socket_id, 'unjoined-socket');
+
+  const replacement = await socket('replacement-socket', 'target01');
+  assert.equal(JSON.parse(await redis.get('desk:target01')).value.socket_id, 'replacement-socket');
+  await host.disconnect();
+  assert.equal(JSON.parse(await redis.get('desk:target01')).value.socket_id, 'replacement-socket');
+  await replacement.disconnect();
+  assert.equal(await redis.get('desk:target01'), null);
+});

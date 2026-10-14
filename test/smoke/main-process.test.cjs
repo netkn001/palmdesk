@@ -4,9 +4,12 @@ const load = require('./load-source.cjs');
 const { CaptureSession, InputUnavailableError, normalizedPoint } = load(
   'electron-main/capture-session.ts'
 );
-const { NativeWindowBridge, matchCaptureSources, matchDisplaySources } = load(
-  'electron-main/native-window.ts'
-);
+const {
+  NativeWindowBridge,
+  matchCaptureSources,
+  matchDisplaySources,
+  disableBackgroundThrottling,
+} = load('electron-main/native-window.ts');
 
 const source = (extra = {}) => ({
   id: 'window:10:0',
@@ -792,5 +795,16 @@ test('entire screen capture session maps coordinates and receives input', async 
     ['position', { x: 960, y: 540 }],
     ['position', { x: 1919, y: 1079 }],
     ['click', 'left', false],
+  ]);
+});
+test('disableBackgroundThrottling appends Chromium flags to prevent renderer background throttling', () => {
+  const switches = [];
+  disableBackgroundThrottling({
+    appendSwitch: (flag) => switches.push(flag),
+  });
+  assert.deepEqual(switches, [
+    'disable-background-timer-throttling',
+    'disable-renderer-backgrounding',
+    'disable-backgrounding-occluded-windows',
   ]);
 });

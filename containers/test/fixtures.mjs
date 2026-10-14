@@ -32,6 +32,10 @@ export class TestSocket {
   connected = true;
   sent = [];
   handlers = new Map();
+  connHandlers = new Map();
+  conn = {
+    on: (event, handler) => { this.connHandlers.set(event, handler); },
+  };
   constructor(id) {
     this.id = id;
     this.handshake = { address: '127.0.0.1', headers: { 'x-real-ip': `ip-${id}` } };
@@ -40,6 +44,10 @@ export class TestSocket {
   emit(event, data) { this.sent.push({ event, data }); }
   async receive(event, data = {}) {
     this.handlers.get(event)?.({ data });
+    await flush();
+  }
+  async receiveConn(event, data = {}) {
+    this.connHandlers.get(event)?.(data);
     await flush();
   }
   last(event) { return this.sent.filter((message) => message.event === event).at(-1)?.data; }

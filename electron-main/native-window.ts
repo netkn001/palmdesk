@@ -58,6 +58,16 @@ export function enableWindowsCapture(commandLine: Electron.CommandLine) {
   return true;
 }
 
+export function disableBackgroundThrottling(commandLine: Electron.CommandLine) {
+  for (const flag of [
+    'disable-background-timer-throttling',
+    'disable-renderer-backgrounding',
+    'disable-backgrounding-occluded-windows',
+  ]) {
+    commandLine.appendSwitch(flag);
+  }
+}
+
 export function nativeHelperPath(
   platform: NodeJS.Platform,
   mainDirectory: string,

@@ -43,11 +43,27 @@ function createDeskSessions({ io, redis, users, prefixes, ttl = 3600 }) {
   }
 
   async function publishDevice(socket) {
+    if (!socket.connected || !socket.data.desk) return;
     const { device } = socket.data.desk;
     // Preserve the registry format used by the pinned upstream HTTP device routes.
     await redis.set(`${prefixes.deskUserUuid}${device}`, JSON.stringify({
       value: { socket_id: socket.id, deskUserUuid: device },
-    }), { EX: 30 });
+    }), { EX: 90 });
+  }
+
+  async function unpublishDevice(socket) {
+    const device = socket.data.desk?.device;
+    if (!device) return;
+    const key = `${prefixes.deskUserUuid}${device}`;
+    const value = await redis.get(key);
+    if (!value) return;
+    try {
+      if (JSON.parse(value)?.value?.socket_id === socket.id) {
+        await redis.del(key);
+      }
+    } catch {
+      // Ignore malformed registry entries.
+    }
   }
 
   async function join(socket, data) {
@@ -152,10 +168,26 @@ function createDeskSessions({ io, redis, users, prefixes, ttl = 3600 }) {
     });
     on('billdDeskJoin', (data) => join(socket, data));
     on('billdDeskStartRemote', (data) => start(socket, data));
-    on('billdDeskUpdateUser', async () => {
+    on('billdDeskUpdateUser', async (data) => {
+      if (!socket.connected) return;
+      if (!socket.data.desk && data?.deskUserUuid && data?.deskUserPassword) {
+        await join(socket, {
+          deskUserUuid: data.deskUserUuid,
+          deskUserPassword: data.deskUserPassword,
+          live_room_id: data.roomId || data.deskUserUuid,
+        });
+        return;
+      }
+      if (socket.data.desk) await publishDevice(socket);
+    });
+    on('heartbeat', async () => {
       if (socket.connected && socket.data.desk) await publishDevice(socket);
     });
-    on('heartbeat', () => {});
+    socket.conn?.on('heartbeat', () => {
+      if (socket.connected && socket.data.desk) {
+        queue = queue.then(() => publishDevice(socket)).catch(() => {});
+      }
+    });
     on('billdDeskEndRemote', (data) => {
       if (socket.data.deskPeers?.get(data.receiver) === data.sessionId) return end(data.sessionId, 'explicit');
     });
@@ -163,6 +195,7 @@ function createDeskSessions({ io, redis, users, prefixes, ttl = 3600 }) {
       on(event, (data) => relay(socket, event, data));
     }
     socket.on('disconnect', () => {
+      queue = queue.then(() => unpublishDevice(socket)).catch(() => {});
       for (const id of socket.data.deskPeers?.values() || []) {
         void end(id).catch(() => console.error('Session cleanup failed'));
       }
