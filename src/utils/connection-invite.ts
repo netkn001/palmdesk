@@ -2,6 +2,7 @@ export interface ConnectionInvite {
   url: string;
   device: string;
   password: string;
+  fullScreen?: boolean;
 }
 
 function readWebUrl(value: string) {
@@ -54,16 +55,21 @@ function validateCredentials(device: string, password: string) {
 export function createConnectionInvite(
   clientUrl: string,
   device: string,
-  password: string
+  password: string,
+  options?: { fullScreen?: boolean }
 ) {
   const url = new URL(normalizeClientUrl(clientUrl));
   validateCredentials(device, password);
-  // Fragments are not sent in HTTP requests or Referer headers.
-  url.hash = `/remote?${new URLSearchParams({
+  const params = new URLSearchParams({
     connect: '1',
     device,
     password,
-  })}`;
+  });
+  if (options?.fullScreen) {
+    params.set('fullScreen', '1');
+  }
+  // Fragments are not sent in HTTP requests or Referer headers.
+  url.hash = `/remote?${params}`;
   return url.href;
 }
 
@@ -71,26 +77,32 @@ export function parseConnectionInvite(value: string): ConnectionInvite {
   const url = readWebUrl(value.trim());
   const route = new URL(url.hash.slice(1), 'https://route.invalid');
   const params = route.searchParams;
+  const fullScreenValues = params.getAll('fullScreen');
   if (
     url.search ||
     route.origin !== 'https://route.invalid' ||
     route.pathname !== '/remote' ||
     route.hash ||
     params.get('connect') !== '1' ||
-    [...params.keys()].length !== 3 ||
+    fullScreenValues.length > 1 ||
+    (fullScreenValues.length === 1 && fullScreenValues[0] !== '1') ||
+    [...params.keys()].length !== 3 + fullScreenValues.length ||
     ['connect', 'device', 'password'].some(
       (key) => params.getAll(key).length !== 1
     )
   ) {
     throw new Error('这不是有效的 Codex Remote 连接二维码');
   }
+  const fullScreen = fullScreenValues[0] === '1';
   const device = params.get('device')!;
   const password = params.get('password')!;
   validateCredentials(device, password);
   url.hash = '';
   return {
-    url: createConnectionInvite(url.href, device, password),
+    url: createConnectionInvite(url.href, device, password, { fullScreen }),
     device,
     password,
+    ...(fullScreen ? { fullScreen: true } : {}),
   };
 }
+

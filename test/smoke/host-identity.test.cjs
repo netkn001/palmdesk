@@ -63,6 +63,7 @@ test('print-link arguments', () => {
   assert.equal(isPrintLinkInvocation(['PalmDesk.exe']), false);
   assert.deepEqual(parsePrintLinkArgs(['x', '--print-link']), {
     json: false,
+    fullScreen: false,
     timeoutMs: 60000,
     output: '',
     user: '',
@@ -71,11 +72,18 @@ test('print-link arguments', () => {
     parsePrintLinkArgs([
       '--print-link',
       '--json',
+      '--full-screen',
       '--timeout=5',
       '--output=C:\\a.txt',
       '--user=alice',
     ]),
-    { json: true, timeoutMs: 5000, output: 'C:\\a.txt', user: 'alice' }
+    {
+      json: true,
+      fullScreen: true,
+      timeoutMs: 5000,
+      output: 'C:\\a.txt',
+      user: 'alice',
+    }
   );
   assert.throws(() => parsePrintLinkArgs(['--timeout=abc']));
   assert.throws(() => parsePrintLinkArgs(['--timeout=-1']));
@@ -202,6 +210,30 @@ test('print-link prints the published link for this instance', async () => {
     assert.deepEqual(
       JSON.parse(fs.readFileSync(output, 'utf8')),
       record({ instanceId })
+    );
+
+    const fullScreenOut = io();
+    code = await hostLink.runPrintLink(
+      ['--print-link', '--full-screen', '--timeout=1'],
+      'win32',
+      fullScreenOut
+    );
+    assert.equal(code, PRINT_LINK_EXIT.ok);
+    assert.equal(
+      fullScreenOut.stdout.text(),
+      `${record().url}&fullScreen=1\n`
+    );
+
+    const fullScreenJson = io();
+    code = await hostLink.runPrintLink(
+      ['--print-link', '--full-screen', '--json', '--timeout=1'],
+      'win32',
+      fullScreenJson
+    );
+    assert.equal(code, PRINT_LINK_EXIT.ok);
+    assert.deepEqual(
+      JSON.parse(fullScreenJson.stdout.text()),
+      record({ instanceId, url: `${record().url}&fullScreen=1` })
     );
   });
 });

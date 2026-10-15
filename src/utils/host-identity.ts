@@ -109,6 +109,7 @@ export function readConnectionRecord(value: unknown): ConnectionRecord | null {
 
 export interface PrintLinkOptions {
   json: boolean;
+  fullScreen: boolean;
   timeoutMs: number;
   output: string;
   user: string;
@@ -124,12 +125,14 @@ export function isPrintLinkInvocation(argv: readonly string[]) {
 export function parsePrintLinkArgs(argv: readonly string[]): PrintLinkOptions {
   const options: PrintLinkOptions = {
     json: false,
+    fullScreen: false,
     timeoutMs: DEFAULT_PRINT_LINK_TIMEOUT_MS,
     output: '',
     user: '',
   };
   argv.forEach((arg) => {
     if (arg === '--json') options.json = true;
+    else if (arg === '--full-screen') options.fullScreen = true;
     else if (arg.startsWith('--timeout=')) {
       const seconds = Number(arg.slice('--timeout='.length));
       if (!Number.isFinite(seconds) || seconds < 0 || seconds > 3600)
@@ -146,11 +149,26 @@ export function parsePrintLinkArgs(argv: readonly string[]): PrintLinkOptions {
   return options;
 }
 
+export function withFullScreenInvite(url: string): string {
+  const hashIndex = url.indexOf('#');
+  if (hashIndex < 0) return url;
+  const base = url.slice(0, hashIndex);
+  const hash = url.slice(hashIndex + 1);
+  const [route, query = ''] = hash.split('?');
+  const params = new URLSearchParams(query);
+  params.set('fullScreen', '1');
+  return `${base}#${route}?${params.toString()}`;
+}
+
 export function formatConnectionRecord(
   record: ConnectionRecord,
-  json: boolean
+  json: boolean,
+  fullScreen = false
 ) {
-  return json ? `${JSON.stringify(record)}\n` : `${record.url}\n`;
+  const outputRecord = fullScreen
+    ? { ...record, url: withFullScreenInvite(record.url) }
+    : record;
+  return json ? `${JSON.stringify(outputRecord)}\n` : `${outputRecord.url}\n`;
 }
 
 export const PRINT_LINK_EXIT = {
@@ -160,3 +178,4 @@ export const PRINT_LINK_EXIT = {
   mismatch: 3,
   noIdentity: 4,
 } as const;
+

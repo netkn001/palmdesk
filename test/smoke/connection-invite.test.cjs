@@ -19,6 +19,20 @@ test('invitations round-trip reserved characters through fragments', () => {
     device: 'AB1234cd',
     password: 'a+&#?= 9',
   });
+
+  const fullScreenLink = createConnectionInvite(
+    'https://remote.example.com/client/#/remote',
+    'AB1234cd',
+    'a+&#?= 9',
+    { fullScreen: true }
+  );
+  assert.ok(fullScreenLink.includes('fullScreen=1'));
+  assert.deepEqual(parseConnectionInvite(fullScreenLink), {
+    url: fullScreenLink,
+    device: 'AB1234cd',
+    password: 'a+&#?= 9',
+    fullScreen: true,
+  });
 });
 
 test('host addresses accept deployed and LAN clients without inventing an address', () => {

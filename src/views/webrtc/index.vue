@@ -27,7 +27,7 @@
               ? inputError
                 ? '控制已暂停'
                 : '已连接'
-              : selectedWindow
+              : selectedWindow || autoSelectFullScreen
                 ? '正在加载'
                 : connected
                   ? '选择 Agent'
@@ -62,7 +62,7 @@
       </details>
     </header>
     <nav
-      v-if="connected"
+      v-if="connected && !autoSelectFullScreen"
       class="view-tabs"
       aria-label="查看方式"
     >
@@ -119,7 +119,12 @@
       <span v-else-if="selectedWindow">已关联窗口</span>
     </div>
     <AgentPicker
-      v-if="connected && !selectedWindow && view === 'window'"
+      v-if="
+        connected &&
+        !selectedWindow &&
+        !autoSelectFullScreen &&
+        view === 'window'
+      "
       :applications="agents"
       :sources="windows"
       :bindings="agentBindings"
@@ -174,7 +179,7 @@
       @behavior="sendBehavior"
     />
     <div
-      v-if="!connected"
+      v-if="!connected || (autoSelectFullScreen && !selectedWindow)"
       class="connection-message"
       role="status"
     >
@@ -302,6 +307,7 @@ const readerRevision = ref(0);
 const readingSession = ref<ReaderSession>();
 const sessionWindows = ref<Record<string, string>>({});
 let choseView = false;
+const autoSelectFullScreen = ref(false);
 let associationRequest = '';
 const videoReady = ref(false);
 let listRequest = '';
@@ -421,15 +427,20 @@ function requestWindows() {
   discoveryError.value = '';
   windowsLoading.value = true;
   windowError.value = '';
+  const fastFullScreen = autoSelectFullScreen.value;
   peer.value?.dataChannelSend({
     msgType: WsMsgTypeEnum.remoteWindowsRequest,
     requestId: listRequest,
-    data: { agentDiscovery: true, previews: !openingAgent.value },
+    data: {
+      agentDiscovery: !fastFullScreen,
+      previews: !fastFullScreen && !openingAgent.value,
+    },
   });
-  if (!openingAgent.value) requestInstalledAgents();
+  if (!fastFullScreen && !openingAgent.value) requestInstalledAgents();
   requestTimer = setTimeout(() => {
     listRequest = '';
     windowsLoading.value = false;
+    autoSelectFullScreen.value = false;
     windowError.value = '读取窗口列表超时，请刷新重试';
     if (openingAgent.value)
       finishAgentLaunch('读取窗口超时，请刷新查看 Agent 或重试');
@@ -661,6 +672,17 @@ function receiveWindowMessage(event: MessageEvent) {
           contexts.has(context)
         )
       );
+      if (autoSelectFullScreen.value) {
+        const screenWindow = windows.value.find(
+          (item) => item.boundsSource === 'screen' || item.appName === '屏幕'
+        );
+        if (screenWindow) {
+          windows.value = [];
+          selectWindow(screenWindow);
+          return;
+        }
+        autoSelectFullScreen.value = false;
+      }
       checkLaunchedWindows();
     }
   } else if (
@@ -671,11 +693,14 @@ function receiveWindowMessage(event: MessageEvent) {
     clearTimeout(requestTimer);
     selectRequest = '';
     windowStarting.value = false;
+    autoSelectFullScreen.value = false;
     if (typeof data.error === 'string') {
       if (needsWindowResume.value) {
         selectedWindow.value = undefined;
         needsWindowResume.value = false;
         sessionWindows.value = {};
+        requestWindows();
+      } else if (!windows.value.length) {
         requestWindows();
       }
       windowError.value = data.error;
@@ -1105,6 +1130,12 @@ onMounted(() => {
     error.value = '连接信息已失效，请返回重新连接';
     return;
   }
+  const fullScreen = params.fullScreen === true || params.fullScreen === '1';
+  if (fullScreen) {
+    autoSelectFullScreen.value = true;
+    choseView = true;
+    view.value = 'window';
+  }
   sessionStorage.setItem(
     'codex-remote-session',
     JSON.stringify({
@@ -1112,6 +1143,7 @@ onMounted(() => {
       deskUserPassword: deskUserPassword.value,
       remoteDeskUserUuid: remoteDeskUserUuid.value,
       remoteDeskUserPassword: remoteDeskUserPassword.value,
+      ...(fullScreen ? { fullScreen: true } : {}),
     })
   );
   if (Object.keys(route.query).length)

@@ -135,7 +135,7 @@ type PrintLinkIo = Record<
   Pick<NodeJS.WritableStream, 'write'>
 >;
 
-/** `PalmDesk.exe --print-link [--json] [--timeout=秒] [--output=文件] [--user=用户名]` */
+/** `PalmDesk.exe --print-link [--json] [--full-screen] [--timeout=秒] [--output=文件] [--user=用户名]` */
 export async function runPrintLink(
   argv: readonly string[],
   platform: NodeJS.Platform,
@@ -168,7 +168,11 @@ export async function runPrintLink(
   for (;;) {
     const record = loadConnectionRecord(filePath);
     if (record?.instanceId === instanceId) {
-      const text = formatConnectionRecord(record, options.json);
+      const text = formatConnectionRecord(
+        record,
+        options.json,
+        options.fullScreen
+      );
       if (options.output) {
         try {
           writeFileSync(options.output, text, 'utf8');

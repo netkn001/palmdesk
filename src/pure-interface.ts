@@ -49,6 +49,7 @@ export interface IRemoteWindow {
   thumbnail: string;
   appIcon: string;
   isOnScreen: boolean;
+  boundsSource?: CaptureBoundsSource;
 }
 
 export interface IRemoteAgent {

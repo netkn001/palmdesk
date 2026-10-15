@@ -1686,6 +1686,21 @@ async function handleWindowRequest(
         result.data.sources
       );
       id = crypto.randomUUID();
+    } else if (request.data.fullScreen === true) {
+      const result = await invokeCapture(IPC_EVENT.getCaptureSources, {
+        previews: false,
+      });
+      if (!current()) return;
+      if (result?.code !== 0) throw new Error(result?.msg || '读取窗口失败');
+      const screenSource = (result.data.sources as ICaptureSource[]).find(
+        (item) =>
+          item.boundsSource === 'screen' ||
+          item.bundleId === 'system.display' ||
+          item.appName === '屏幕'
+      );
+      if (!screenSource) throw new Error('未找到全屏桌面捕获源');
+      source = screenSource;
+      id = crypto.randomUUID();
     } else {
       const catalog = windowCatalogs.get(peer.receiver);
       if (!catalog || typeof id !== 'string')
@@ -1777,6 +1792,9 @@ async function handleConfirm(pwd: string) {
           remoteDeskUserUuid: cacheStore.remoteDeskUserUuid,
           remoteDeskUserPassword: pwd,
         });
+        const fullScreen =
+          receivedInvite.value?.device === cacheStore.remoteDeskUserUuid &&
+          receivedInvite.value?.fullScreen === true;
         if (ipcRenderer) {
           ipcRendererSend({
             windowId: 0,
@@ -1792,6 +1810,7 @@ async function handleConfirm(pwd: string) {
                 remoteDeskUserPassword: pwd,
                 receiverId: receiverId.value,
                 audioContentHint: currentAudioContentHint.value,
+                ...(fullScreen ? { fullScreen: '1' } : {}),
               },
               windowId: WINDOW_ID_ENUM.webrtc,
               minWidth: 300,
@@ -1812,6 +1831,7 @@ async function handleConfirm(pwd: string) {
               remoteDeskUserPassword: pwd,
               receiverId: receiverId.value,
               audioContentHint: currentAudioContentHint.value,
+              ...(fullScreen ? { fullScreen: true } : {}),
             })
           );
           await router.push({ name: routerName.webrtc });
